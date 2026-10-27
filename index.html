@@ -175,9 +175,17 @@
   @media (max-width:768px){
     main{padding:16px 12px}
     .kpi-grid{grid-template-columns:1fr}
-    .cod{min-width:70px;font-size:11.5px}
     .bar{display:none}
-    thead th,tbody td{padding:8px 11px}
+    /* Tabela cabe na tela do celular: colunas menores, descrição quebra linha,
+       e o painel pode rolar na horizontal (garante que o % nunca seja cortado). */
+    .panel{overflow-x:auto}
+    thead th,tbody td{padding:8px 7px}
+    .cod{min-width:0;font-size:10.5px}
+    .conta{gap:5px}
+    .nome{white-space:normal;word-break:break-word;line-height:1.25}
+    td.v{font-size:11.5px}
+    td.p{width:48px;font-size:11px}
+    thead th{font-size:10px;letter-spacing:.3px}
     /* Topbar quebra em duas linhas no celular para caber seletor + botões */
     .topbar{height:auto;flex-wrap:wrap;padding:10px 12px;gap:8px}
     .hdr-select,.topbar .nav-btn{font-size:12px}
