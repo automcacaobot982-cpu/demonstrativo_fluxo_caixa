@@ -188,19 +188,9 @@
   </div>
   <div class="spacer"></div>
   <span class="badge" id="periodoBadge">—</span>
-  <button class="nav-btn btn-install" id="btnBaixar">⬇ Baixar app</button>
+  <button class="nav-btn btn-install" id="btnBaixar" style="display:none">⬇ Baixar app</button>
   <button class="nav-btn" id="btnRefresh">↻ Atualizar</button>
 </header>
-
-<!-- MODAL: instruções de instalação (iPhone / quando não há prompt nativo) -->
-<div id="modalInstall" class="modal-overlay hidden">
-  <div class="modal">
-    <div class="modal-head"><h3>Instalar o app no celular</h3>
-      <button class="btn-x" id="btnFecharInstall" aria-label="Fechar">✕</button></div>
-    <div class="modal-body" id="modalInstallBody"></div>
-    <div class="modal-foot"><button class="btn-ghost" id="btnOkInstall">Entendi</button></div>
-  </div>
-</div>
 
 <main>
   <div class="page-head">
@@ -560,19 +550,17 @@ const btnBaixar = document.getElementById('btnBaixar');
 function appJaInstalado(){
   return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
 }
-function ehIOS(){
-  const ua = navigator.userAgent || '';
-  return /iPad|iPhone|iPod/.test(ua) || (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1);
-}
 
-// Botão "Baixar app": fica sempre visível e só some quando o app já está
-// instalado (aberto em modo standalone). No clique, ele instala pelo Chrome
-// ou mostra as instruções (iPhone/desktop).
+// O botão "Baixar app" aparece apenas quando a instalação nativa está
+// disponível (Android/Chrome). Some quando o app já está instalado ou quando
+// o navegador não oferece instalação — assim o clique SEMPRE instala direto,
+// sem abrir nenhuma caixa de texto.
 function atualizarBotaoInstalar(){
-  btnBaixar.style.display = appJaInstalado() ? 'none' : '';
+  const podeInstalar = !appJaInstalado() && promptInstalar !== null;
+  btnBaixar.style.display = podeInstalar ? '' : 'none';
 }
 
-// Android/Chrome: captura o evento para disparar a instalação nativa depois.
+// Android/Chrome: captura o evento para disparar a instalação nativa no clique.
 window.addEventListener('beforeinstallprompt', (e)=>{
   e.preventDefault();
   promptInstalar = e;
@@ -585,42 +573,16 @@ window.addEventListener('appinstalled', ()=>{
   atualizarBotaoInstalar();
 });
 
-function abrirModalInstall(html){
-  document.getElementById('modalInstallBody').innerHTML = html;
-  document.getElementById('modalInstall').classList.remove('hidden');
-}
-function fecharModalInstall(){ document.getElementById('modalInstall').classList.add('hidden'); }
-document.getElementById('btnFecharInstall').addEventListener('click', fecharModalInstall);
-document.getElementById('btnOkInstall').addEventListener('click', fecharModalInstall);
-
+// Clique no botão = instalação nativa direta (sem janela/aviso).
 btnBaixar.addEventListener('click', async ()=>{
-  // 1) Android/Chrome com prompt nativo disponível
-  if(promptInstalar){
-    promptInstalar.prompt();
-    try{ await promptInstalar.userChoice; }catch(_){}
-    promptInstalar = null;
-    atualizarBotaoInstalar();
-    return;
-  }
-  // 2) iPhone/iPad (Safari não tem prompt — instrução manual)
-  if(ehIOS()){
-    abrirModalInstall(
-      'No iPhone/iPad, use o <b>Safari</b> e:' +
-      '<ol><li>Toque no botão <b>Compartilhar</b> (o quadrado com a seta para cima).</li>' +
-      '<li>Escolha <b>Adicionar à Tela de Início</b>.</li>' +
-      '<li>Confirme em <b>Adicionar</b>.</li></ol>' +
-      'O ícone <b>DFC Belt</b> vai aparecer como um aplicativo.');
-    return;
-  }
-  // 3) Desktop/outros navegadores (Chrome/Edge sem prompt disponível ainda).
-  abrirModalInstall(
-    'Para instalar o app:' +
-    '<ol><li><b>Android (Chrome):</b> toque no menu <b>⋮</b> e em <b>Instalar aplicativo</b>.</li>' +
-    '<li><b>Computador (Chrome/Edge):</b> clique no ícone de <b>instalar</b> na barra de endereço.</li></ol>' +
-    'Se a opção não aparecer, recarregue a página uma vez com internet e tente de novo.');
+  if(!promptInstalar) return;
+  promptInstalar.prompt();
+  try{ await promptInstalar.userChoice; }catch(_){}
+  promptInstalar = null;
+  atualizarBotaoInstalar();
 });
 
-// Define a visibilidade inicial do botão.
+// Visibilidade inicial (começa escondido até o Chrome liberar a instalação).
 atualizarBotaoInstalar();
 
 // Registra o service worker (necessário para instalar e abrir offline).
