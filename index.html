@@ -185,7 +185,7 @@
   </div>
   <div class="spacer"></div>
   <span class="badge" id="periodoBadge">—</span>
-  <button class="nav-btn" id="btnBaixar">⬇ Baixar</button>
+  <button class="nav-btn" id="btnBaixar" style="display:none">⬇ Instalar app</button>
   <button class="nav-btn" id="btnRefresh">↻ Atualizar</button>
 </header>
 
@@ -552,16 +552,37 @@ document.getElementById('btnCollapse').addEventListener('click',()=>{
    PWA — instalação no celular ("Baixar") + service worker
    ========================================================================== */
 let promptInstalar = null;
+const btnBaixar = document.getElementById('btnBaixar');
+
+function appJaInstalado(){
+  return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+}
+function ehIOS(){
+  const ua = navigator.userAgent || '';
+  return /iPad|iPhone|iPod/.test(ua) || (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1);
+}
+
+// Decide se o botão "Instalar app" aparece:
+// - some se já instalado;
+// - aparece se há prompt nativo do Chrome OU se é iPhone/iPad (instrução manual);
+// - some nos demais casos (navegador sem suporte).
+function atualizarBotaoInstalar(){
+  const mostrar = !appJaInstalado() && (promptInstalar !== null || ehIOS());
+  btnBaixar.style.display = mostrar ? '' : 'none';
+}
 
 // Android/Chrome: captura o evento para disparar a instalação nativa depois.
 window.addEventListener('beforeinstallprompt', (e)=>{
   e.preventDefault();
   promptInstalar = e;
+  atualizarBotaoInstalar();
 });
 
-function appJaInstalado(){
-  return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
-}
+// Quando o app é instalado, esconde o botão.
+window.addEventListener('appinstalled', ()=>{
+  promptInstalar = null;
+  atualizarBotaoInstalar();
+});
 
 function abrirModalInstall(html){
   document.getElementById('modalInstallBody').innerHTML = html;
@@ -571,22 +592,17 @@ function fecharModalInstall(){ document.getElementById('modalInstall').classList
 document.getElementById('btnFecharInstall').addEventListener('click', fecharModalInstall);
 document.getElementById('btnOkInstall').addEventListener('click', fecharModalInstall);
 
-document.getElementById('btnBaixar').addEventListener('click', async ()=>{
-  if(appJaInstalado()){
-    abrirModalInstall('✅ O app <b>já está instalado</b> neste dispositivo. Abra pelo ícone <b>DFC Belt</b> na tela inicial.');
-    return;
-  }
+btnBaixar.addEventListener('click', async ()=>{
   // 1) Android/Chrome com prompt nativo disponível
   if(promptInstalar){
     promptInstalar.prompt();
     try{ await promptInstalar.userChoice; }catch(_){}
     promptInstalar = null;
+    atualizarBotaoInstalar();
     return;
   }
   // 2) iPhone/iPad (Safari não tem prompt — instrução manual)
-  const ua = navigator.userAgent || '';
-  const ehIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1);
-  if(ehIOS){
+  if(ehIOS()){
     abrirModalInstall(
       'No iPhone/iPad, use o <b>Safari</b> e:' +
       '<ol><li>Toque no botão <b>Compartilhar</b> (o quadrado com a seta para cima).</li>' +
@@ -595,13 +611,12 @@ document.getElementById('btnBaixar').addEventListener('click', async ()=>{
       'O ícone <b>DFC Belt</b> vai aparecer como um aplicativo.');
     return;
   }
-  // 3) Outros casos (navegador sem suporte / já dispensado)
-  abrirModalInstall(
-    'Para instalar, abra este painel no <b>Chrome</b> (Android) ou <b>Safari</b> (iPhone).' +
-    '<ol><li><b>Android/Chrome:</b> menu <b>⋮</b> → <b>Instalar aplicativo</b> / <b>Adicionar à tela inicial</b>.</li>' +
-    '<li><b>iPhone/Safari:</b> <b>Compartilhar</b> → <b>Adicionar à Tela de Início</b>.</li></ol>' +
-    'No computador, o Chrome mostra um ícone de instalação na barra de endereço.');
+  // 3) Sem prompt e não é iOS: esconde o botão (não há como instalar aqui).
+  atualizarBotaoInstalar();
 });
+
+// Define a visibilidade inicial do botão.
+atualizarBotaoInstalar();
 
 // Registra o service worker (necessário para instalar e abrir offline).
 if('serviceWorker' in navigator){
