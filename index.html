@@ -554,8 +554,11 @@ document.getElementById('btnCollapse').addEventListener('click',()=>{
 /* ============================================================================
    PWA — instalação no celular ("Baixar") + service worker
    ========================================================================== */
-let promptInstalar = null;
+let promptInstalar = null;      // evento nativo de instalação, quando o Chrome libera
+let aguardandoInstalar = false; // usuário clicou antes do evento chegar -> instalar assim que chegar
+let timerEspera = null;
 const btnBaixar = document.getElementById('btnBaixar');
+const TXT_BTN = '⬇ Baixar app';
 
 function appJaInstalado(){
   return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
@@ -566,22 +569,45 @@ function ehIOS(){
 }
 
 // Botão "Baixar app": fica sempre visível e só some quando o app já está
-// instalado (aberto em modo standalone). No clique, ele instala pelo Chrome
-// ou mostra as instruções (iPhone/desktop).
+// instalado (aberto em modo standalone).
 function atualizarBotaoInstalar(){
   btnBaixar.style.display = appJaInstalado() ? 'none' : '';
 }
 
-// Android/Chrome: captura o evento para disparar a instalação nativa depois.
+// Dispara a janela nativa "Instalar app?" do Chrome (um toque -> instala).
+async function dispararInstalacao(){
+  if(!promptInstalar) return false;
+  const p = promptInstalar;
+  promptInstalar = null;          // o evento só pode ser usado uma vez
+  try{
+    p.prompt();
+    await p.userChoice;
+  }catch(_){}
+  atualizarBotaoInstalar();
+  return true;
+}
+
+// Android/Chrome: captura o evento de instalação para disparar depois.
 window.addEventListener('beforeinstallprompt', (e)=>{
   e.preventDefault();
   promptInstalar = e;
   atualizarBotaoInstalar();
+  // Se o usuário já tinha clicado em "Baixar app" e estávamos esperando
+  // o navegador liberar, instala AGORA — sem menu, automático.
+  if(aguardandoInstalar){
+    aguardandoInstalar = false;
+    clearTimeout(timerEspera);
+    btnBaixar.textContent = TXT_BTN;
+    dispararInstalacao();
+  }
 });
 
 // Quando o app é instalado, esconde o botão.
 window.addEventListener('appinstalled', ()=>{
   promptInstalar = null;
+  aguardandoInstalar = false;
+  clearTimeout(timerEspera);
+  btnBaixar.textContent = TXT_BTN;
   atualizarBotaoInstalar();
 });
 
@@ -594,30 +620,38 @@ document.getElementById('btnFecharInstall').addEventListener('click', fecharModa
 document.getElementById('btnOkInstall').addEventListener('click', fecharModalInstall);
 
 btnBaixar.addEventListener('click', async ()=>{
-  // 1) Android/Chrome com prompt nativo disponível
-  if(promptInstalar){
-    promptInstalar.prompt();
-    try{ await promptInstalar.userChoice; }catch(_){}
-    promptInstalar = null;
-    atualizarBotaoInstalar();
-    return;
-  }
-  // 2) iPhone/iPad (Safari não tem prompt — instrução manual)
+  // 1) Instalação nativa já liberada -> instala na hora (um toque).
+  if(promptInstalar){ await dispararInstalacao(); return; }
+
+  // 2) iPhone/iPad: o Safari não permite instalação automática (limite da Apple).
   if(ehIOS()){
     abrirModalInstall(
-      'No iPhone/iPad, use o <b>Safari</b> e:' +
+      'No iPhone/iPad a instalação automática não é permitida pela Apple. Use o <b>Safari</b> e:' +
       '<ol><li>Toque no botão <b>Compartilhar</b> (o quadrado com a seta para cima).</li>' +
       '<li>Escolha <b>Adicionar à Tela de Início</b>.</li>' +
       '<li>Confirme em <b>Adicionar</b>.</li></ol>' +
       'O ícone <b>DFC Belt</b> vai aparecer como um aplicativo.');
     return;
   }
-  // 3) Desktop/outros navegadores (Chrome/Edge sem prompt disponível ainda).
-  abrirModalInstall(
-    'Para instalar o app:' +
-    '<ol><li><b>Android (Chrome):</b> toque no menu <b>⋮</b> e em <b>Instalar aplicativo</b>.</li>' +
-    '<li><b>Computador (Chrome/Edge):</b> clique no ícone de <b>instalar</b> na barra de endereço.</li></ol>' +
-    'Se a opção não aparecer, recarregue a página uma vez com internet e tente de novo.');
+
+  // 3) Android/desktop, mas o evento ainda não chegou: em vez de mandar pro
+  //    menu, ARMAMOS a instalação e esperamos o navegador liberar (instala
+  //    sozinho no instante em que liberar).
+  if(aguardandoInstalar) return;    // já esperando
+  aguardandoInstalar = true;
+  btnBaixar.textContent = '⏳ Preparando…';
+  // Se em 8s nada liberar, a página provavelmente não está instalável agora
+  // (precisa de HTTPS + recarregar uma vez) -> mostra a ajuda como último recurso.
+  timerEspera = setTimeout(()=>{
+    if(!aguardandoInstalar) return;
+    aguardandoInstalar = false;
+    btnBaixar.textContent = TXT_BTN;
+    abrirModalInstall(
+      'Não consegui abrir a instalação automática agora. Verifique:' +
+      '<ol><li>A página precisa estar aberta por <b>HTTPS</b> (o endereço do GitHub Pages), não como arquivo local.</li>' +
+      '<li><b>Recarregue a página uma vez com internet</b> e toque em <b>Baixar app</b> de novo.</li></ol>' +
+      'Se ainda assim não abrir, o app pode já estar instalado neste aparelho.');
+  }, 8000);
 });
 
 // Define a visibilidade inicial do botão.
