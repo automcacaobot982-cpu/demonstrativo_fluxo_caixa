@@ -229,7 +229,7 @@
   </section>
 
   <div class="chart-card">
-    <h3>Resultado diário (Em R$)</h3>
+    <h3 id="tituloGrafico">Resultado diário (Em R$)</h3>
     <div class="chart-wrap"><canvas id="chartDiario"></canvas></div>
   </div>
 
@@ -357,6 +357,7 @@ function processar(mesSel){
   const {map,raizes}=montarArvore();
   let ent=0,sai=0,qEnt=0,qSai=0,qMov=0,naoClass=0;
   const porDiaMap={};  // 'AAAA-MM-DD' -> resultado líquido do dia (entradas - saídas)
+  const porMesMap={};  // 'AAAA-MM'    -> resultado líquido do mês
   for(const cells of LINHAS){
     const ym=toMonth(cells[COL.data]);
     if(mesSel && mesSel!=='__all__' && ym!==mesSel) continue;
@@ -370,11 +371,13 @@ function processar(mesSel){
     const node=resolver(map,cod); if(node) node.direct+=valor; else naoClass+=valor;
     const iso=toISO(cells[COL.data]);
     if(iso) porDiaMap[iso]=(porDiaMap[iso]||0)+valor;
+    if(ym)  porMesMap[ym]=(porMesMap[ym]||0)+valor;
   }
   for(const r of raizes) somarTotais(r);
   const resultado=raizes.reduce((s,r)=>s+r.total,0)+naoClass;
 
   const dias=Object.keys(porDiaMap).sort().map(iso=>({iso, net:porDiaMap[iso]}));
+  const meses=Object.keys(porMesMap).sort().map(ym=>({ym, net:porMesMap[ym]}));
 
   // --- Ponto de equilíbrio ---
   const somaGrupos=(cods)=>cods.reduce((s,c)=>{ const n=map.get(c); return s + (n?n.total:0); },0);
@@ -385,32 +388,40 @@ function processar(mesSel){
   const mcPct = receita>0 ? mc/receita : 0;               // MC%
   const pe = (receita>0 && mcPct>0) ? fixos/mcPct : null; // ponto de equilíbrio R$
 
-  return {map,raizes,ent,sai,resultado,qEnt,qSai,qMov,naoClass,dias,
+  return {map,raizes,ent,sai,resultado,qEnt,qSai,qMov,naoClass,dias,meses,
           receita,variaveis,fixos,mc,mcPct,pe};
 }
 
-/* --------------------- gráfico de colunas: resultado diário -------------- */
-function renderChartDiario(dias, mesSel){
+/* -------- gráfico de colunas: resultado diário (mês único) ou mensal ------ */
+const MESES_ABREV=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+function renderChartResultado(R, mesSel){
   if(typeof Chart==='undefined') return;
-  const umMes = mesSel && mesSel!=='__all__';   // mês único -> rótulo = dia (1..31)
-  const labels = dias.map(d=>{
-    const [a,m,dd]=d.iso.split('-');
-    return umMes ? String(+dd) : `${dd}/${m}`;
-  });
-  const dados = dias.map(d=>+d.net.toFixed(2));
-  const cores = dias.map(d=>d.net>=0?'#1a9455':'#cf3a2c');
+  const umMes = mesSel && mesSel!=='__all__';
+
+  let labels, dados, tituloTip;
+  if(umMes){
+    // Resultado diário: dia (1..31)
+    labels = R.dias.map(d=>{ const [,,dd]=d.iso.split('-'); return String(+dd); });
+    dados  = R.dias.map(d=>+d.net.toFixed(2));
+    tituloTip = items=>'Dia '+items[0].label;
+  }else{
+    // Resultado mensal: consolidado mm/aaaa
+    labels = R.meses.map(x=>{ const [a,m]=x.ym.split('-'); return `${m}/${a}`; });
+    dados  = R.meses.map(x=>+x.net.toFixed(2));
+    tituloTip = items=>{ const [m,a]=items[0].label.split('/'); return `${MESES_ABREV[(+m)-1]||m}/${a}`; };
+  }
+  const serie = umMes ? R.dias : R.meses;
+  const cores = serie.map(x=>x.net>=0?'#1a9455':'#cf3a2c');
+
   const ctx=document.getElementById('chartDiario').getContext('2d');
   if(chartDiario) chartDiario.destroy();
   chartDiario=new Chart(ctx,{
     type:'bar',
-    data:{labels,datasets:[{label:'Resultado do dia',data:dados,backgroundColor:cores,borderRadius:4,maxBarThickness:46}]},
+    data:{labels,datasets:[{label:'Resultado',data:dados,backgroundColor:cores,borderRadius:4,maxBarThickness:46}]},
     options:{
       responsive:true,maintainAspectRatio:false,
       plugins:{legend:{display:false},
-        tooltip:{callbacks:{
-          title:items=>umMes ? ('Dia '+items[0].label) : items[0].label,
-          label:c=>'R$ '+money(c.raw)
-        }}},
+        tooltip:{callbacks:{ title:tituloTip, label:c=>'R$ '+money(c.raw) }}},
       scales:{
         x:{grid:{display:false},ticks:{font:{size:11},autoSkip:true,maxRotation:0}},
         y:{grid:{color:'#eceff1'},ticks:{callback:v=>v.toLocaleString('pt-BR')}}
@@ -446,7 +457,10 @@ function render(){
     document.getElementById('kpiPEsub').textContent = R.receita>0 ? 'Margem de contribuição negativa' : 'Sem receita no período';
   }
 
-  renderChartDiario(R.dias, mesSel);
+  const umMes = mesSel && mesSel!=='__all__';
+  document.getElementById('tituloGrafico').textContent =
+    umMes ? 'Resultado diário (Em R$)' : 'Resultado mensal (Em R$)';
+  renderChartResultado(R, mesSel);
 
   // Denominador da análise vertical (%): total do grupo 01 (receita)
   const receita01 = (R.map.get('01') && R.map.get('01').total) || 0;
