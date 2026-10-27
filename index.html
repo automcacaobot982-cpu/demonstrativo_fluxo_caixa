@@ -70,6 +70,14 @@
   /* Botão "Baixar app" (instalar PWA): destaque sutil em teal */
   .btn-install{background:rgba(127,212,208,.14);border-color:rgba(127,212,208,.45);color:#d6f5f1}
   .btn-install:hover{background:rgba(127,212,208,.24)}
+  /* Seletor de período dentro do cabeçalho escuro */
+  .hdr-select{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;
+    padding:8px 30px 8px 12px;border-radius:var(--r-sm);font-size:13px;font-weight:600;cursor:pointer;
+    appearance:none;font-family:var(--num);
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%23d6f5f1' stroke-width='2'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;background-position:right 10px center;}
+  .hdr-select:hover{background-color:rgba(255,255,255,.18)}
+  .hdr-select option{color:#16191c}
 
   main{max-width:1180px;margin:0 auto;padding:24px 20px 56px}
   .page-head{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:20px}
@@ -115,9 +123,9 @@
   .panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);
     box-shadow:var(--shadow-sm);overflow:hidden}
   table{width:100%;border-collapse:collapse}
-  thead th{position:sticky;top:60px;background:var(--surface-2);text-align:left;
+  thead th{position:static;background:var(--surface-2);text-align:left;
     font-size:11.5px;color:var(--ink-2);text-transform:uppercase;letter-spacing:.5px;
-    padding:12px 18px;border-bottom:1px solid var(--line);z-index:1}
+    padding:12px 18px;border-bottom:1px solid var(--line)}
   thead th.r{text-align:right}
   tbody td{padding:9px 18px;border-bottom:1px solid var(--line)}
   tbody tr:last-child td{border-bottom:none}
@@ -169,18 +177,18 @@
     .kpi-grid{grid-template-columns:1fr}
     .cod{min-width:70px;font-size:11.5px}
     .bar{display:none}
-    thead th{top:60px}
     thead th,tbody td{padding:8px 11px}
+    /* Topbar quebra em duas linhas no celular para caber seletor + botões */
+    .topbar{height:auto;flex-wrap:wrap;padding:10px 12px;gap:8px}
+    .hdr-select,.topbar .nav-btn{font-size:12px}
   }
   @media print{
     body{background:#fff}
-    .topbar{position:static} .toolbar,.badge,.nav-btn,.chart-card,.bar{display:none !important}
+    .topbar{position:static} .toolbar,.hdr-select,.nav-btn,.chart-card,.bar{display:none !important}
     .panel,.kpi{box-shadow:none}
-    /* Corrige a sobreposição do cabeçalho na impressão: deixa de ser fixo
-       e passa a repetir no topo de cada página. */
-    thead th{position:static !important;top:auto !important;
-      -webkit-print-color-adjust:exact;print-color-adjust:exact}
+    /* Cabeçalho da tabela repete no topo de cada página impressa */
     thead{display:table-header-group}
+    thead th{-webkit-print-color-adjust:exact;print-color-adjust:exact}
     tr{page-break-inside:avoid}
     tr.lvl1>td,tr.result>td{-webkit-print-color-adjust:exact;print-color-adjust:exact}
   }
@@ -197,8 +205,9 @@
     <div class="tb-title">Demonstrativo de Fluxo de Caixa<small>Belt Correias · Realizado</small></div>
   </div>
   <div class="spacer"></div>
-  <span class="badge" id="periodoBadge">—</span>
+  <select id="selMes" class="hdr-select" title="Período"><option>—</option></select>
   <button class="nav-btn btn-install" id="btnBaixar">⬇ Baixar app</button>
+  <button class="nav-btn" id="btnPrint">🖨 Imprimir</button>
   <button class="nav-btn" id="btnRefresh">↻ Atualizar</button>
 </header>
 
@@ -213,14 +222,6 @@
 </div>
 
 <main>
-  <div class="page-head">
-    <h1>Fluxo de Caixa Realizado</h1>
-    <div class="ph-controls">
-      <label for="selMes">Período:</label>
-      <select id="selMes" class="control" style="min-width:170px"><option>—</option></select>
-    </div>
-  </div>
-
   <section class="kpi-grid">
     <div class="kpi ent"><div class="kpi-label">Entradas</div><div class="kpi-val pos" id="kpiEnt">—</div><div class="kpi-sub" id="kpiEntQtd">—</div></div>
     <div class="kpi sai"><div class="kpi-label">Saídas</div><div class="kpi-val neg" id="kpiSai">—</div><div class="kpi-sub" id="kpiSaiQtd">—</div></div>
@@ -239,7 +240,6 @@
     <button class="btn-ghost" id="btnExpand">Expandir tudo</button>
     <button class="btn-ghost" id="btnCollapse">Recolher</button>
     <button class="btn-ghost" id="btnCSV">Exportar CSV</button>
-    <button class="btn-ghost" id="btnPrint">Imprimir</button>
   </div>
 
   <div class="panel">
@@ -445,7 +445,6 @@ function render(){
   kRes.textContent='R$ '+money(R.resultado);
   kRes.className='kpi-val '+(R.resultado>=0?'pos':'neg');
   document.getElementById('kpiMov').textContent=R.qMov+' lançamentos no período';
-  document.getElementById('periodoBadge').textContent=rotuloMes(mesSel==='__all__'?'':mesSel);
 
   // KPI Ponto de equilíbrio
   const kPE=document.getElementById('kpiPE');
