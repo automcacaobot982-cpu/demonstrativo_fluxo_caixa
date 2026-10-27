@@ -67,6 +67,9 @@
   .nav-btn{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;
     padding:8px 14px;border-radius:var(--r-sm);font-size:13px;font-weight:600;transition:.15s;}
   .nav-btn:hover{background:rgba(255,255,255,.22)}
+  /* Botão "Baixar app" (instalar PWA): destaque sutil em teal */
+  .btn-install{background:rgba(127,212,208,.14);border-color:rgba(127,212,208,.45);color:#d6f5f1}
+  .btn-install:hover{background:rgba(127,212,208,.24)}
 
   main{max-width:1180px;margin:0 auto;padding:24px 20px 56px}
   .page-head{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:20px}
@@ -185,7 +188,7 @@
   </div>
   <div class="spacer"></div>
   <span class="badge" id="periodoBadge">—</span>
-  <button class="nav-btn" id="btnBaixar" style="display:none">⬇ Instalar app</button>
+  <button class="nav-btn btn-install" id="btnBaixar">⬇ Baixar app</button>
   <button class="nav-btn" id="btnRefresh">↻ Atualizar</button>
 </header>
 
@@ -562,13 +565,11 @@ function ehIOS(){
   return /iPad|iPhone|iPod/.test(ua) || (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1);
 }
 
-// Decide se o botão "Instalar app" aparece:
-// - some se já instalado;
-// - aparece se há prompt nativo do Chrome OU se é iPhone/iPad (instrução manual);
-// - some nos demais casos (navegador sem suporte).
+// Botão "Baixar app": fica sempre visível e só some quando o app já está
+// instalado (aberto em modo standalone). No clique, ele instala pelo Chrome
+// ou mostra as instruções (iPhone/desktop).
 function atualizarBotaoInstalar(){
-  const mostrar = !appJaInstalado() && (promptInstalar !== null || ehIOS());
-  btnBaixar.style.display = mostrar ? '' : 'none';
+  btnBaixar.style.display = appJaInstalado() ? 'none' : '';
 }
 
 // Android/Chrome: captura o evento para disparar a instalação nativa depois.
@@ -611,8 +612,12 @@ btnBaixar.addEventListener('click', async ()=>{
       'O ícone <b>DFC Belt</b> vai aparecer como um aplicativo.');
     return;
   }
-  // 3) Sem prompt e não é iOS: esconde o botão (não há como instalar aqui).
-  atualizarBotaoInstalar();
+  // 3) Desktop/outros navegadores (Chrome/Edge sem prompt disponível ainda).
+  abrirModalInstall(
+    'Para instalar o app:' +
+    '<ol><li><b>Android (Chrome):</b> toque no menu <b>⋮</b> e em <b>Instalar aplicativo</b>.</li>' +
+    '<li><b>Computador (Chrome/Edge):</b> clique no ícone de <b>instalar</b> na barra de endereço.</li></ol>' +
+    'Se a opção não aparecer, recarregue a página uma vez com internet e tente de novo.');
 });
 
 // Define a visibilidade inicial do botão.
