@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>DFC · Belt Correias</title>
+<meta name="theme-color" content="#0c353b">
+<meta name="description" content="Demonstrativo de Fluxo de Caixa Realizado — Belt Correias.">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" sizes="48x48" href="favicon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="DFC Belt">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+  :root{
+    --bg:#eceff1;
+    --surface:#ffffff;
+    --surface-2:#f6f8f9;
+    --ink:#16191c;
+    --ink-2:#586066;
+    --ink-3:#8a939a;
+    --line:#dde3e6;
+    --line-2:#c9d2d6;
+    --bar:#0c353b;
+    --brand:#0d5b63;
+    --brand-2:#0a474d;
+    --brand-tint:#e2efef;
+    --amber:#b57f00;
+    --amber-bg:#fef08a;
+    --amber-text:#854d0e;
+    --red:#cf3a2c;
+    --red-tint:#fbe6e3;
+    --green:#1a9455;
+    --green-tint:#e2f3ea;
+    --shadow-sm:0 1px 2px rgba(16,25,30,.08);
+    --shadow-md:0 10px 30px rgba(12,42,48,.14);
+    --r:12px;
+    --r-sm:8px;
+    --sans:'IBM Plex Sans',system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+    --num:'Space Grotesk','IBM Plex Sans',system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;min-height:100vh}
+  body{font-family:var(--sans);color:var(--ink);background:var(--bg);
+    -webkit-font-smoothing:antialiased;line-height:1.45;}
+  button{font-family:inherit;cursor:pointer}
+  input,select{font-family:inherit}
+
+  /* TOPBAR */
+  .topbar{position:sticky;top:0;z-index:40;background:var(--bar);color:#eaf6f5;
+    display:flex;align-items:center;gap:14px;padding:0 20px;height:60px;}
+  .brand-lockup{display:flex;align-items:center;gap:12px}
+  .brand-lockup .mark{width:38px;height:38px;flex:0 0 auto}
+  .tb-title{font-family:var(--num);font-weight:600;font-size:15px;line-height:1.15}
+  .tb-title small{display:block;font-family:var(--sans);font-weight:400;font-size:11px;color:#9ccbc7}
+  .spacer{flex:1}
+  .badge{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);
+    color:#eaf6f5;font-weight:600;font-size:13px;padding:7px 13px;border-radius:999px;white-space:nowrap;
+    font-family:var(--num);}
+  .nav-btn{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;
+    padding:8px 14px;border-radius:var(--r-sm);font-size:13px;font-weight:600;transition:.15s;}
+  .nav-btn:hover{background:rgba(255,255,255,.22)}
+
+  main{max-width:1180px;margin:0 auto;padding:24px 20px 56px}
+  .page-head{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:20px}
+  .page-head h1{margin:0;font-family:var(--num);font-weight:600;font-size:23px}
+  .ph-controls{display:flex;align-items:center;gap:10px}
+  .ph-controls label{font-size:13px;font-weight:600;color:var(--ink-2)}
+  .control{padding:10px 12px;border:1px solid var(--line-2);border-radius:var(--r-sm);
+    background:var(--surface);font-size:14px;color:var(--ink);}
+  select.control{appearance:none;padding-right:34px;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%23586066' stroke-width='2'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;background-position:right 11px center;}
+
+  /* KPIs */
+  .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-bottom:22px}
+  .kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px 18px 16px;
+    position:relative;box-shadow:var(--shadow-sm);overflow:hidden}
+  .kpi::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--brand)}
+  .kpi.ent::before{background:var(--green)} .kpi.sai::before{background:var(--red)} .kpi.res::before{background:var(--brand)}
+  .kpi .kpi-label{font-size:12px;font-weight:600;color:var(--ink-2);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px}
+  .kpi .kpi-val{font-family:var(--num);font-weight:700;font-size:30px;line-height:1;font-variant-numeric:tabular-nums}
+  .kpi .kpi-sub{font-size:12px;color:var(--ink-3);margin-top:7px}
+  .kpi-val.pos{color:var(--green)} .kpi-val.neg{color:var(--red)} .kpi-val.brand{color:var(--brand)}
+
+  .chart-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);
+    padding:20px;box-shadow:var(--shadow-sm);margin-bottom:22px}
+  .chart-card h3{margin:0 0 14px;font-size:15px;font-weight:600;font-family:var(--num)}
+  .chart-wrap{position:relative;height:300px}
+
+  /* TOOLBAR */
+  .toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
+  .toolbar .grow{flex:1;min-width:180px}
+  input[type=search]{padding:10px 12px;border:1px solid var(--line-2);border-radius:var(--r-sm);
+    background:var(--surface);font-size:14px;color:var(--ink);width:100%}
+  .btn-ghost{background:var(--surface);color:var(--ink);border:1px solid var(--line-2);
+    border-radius:var(--r-sm);font-weight:600;font-size:13.5px;padding:9px 13px;transition:.15s}
+  .btn-ghost:hover{border-color:var(--brand);color:var(--brand)}
+  .chk{display:inline-flex;align-items:center;gap:7px;font-size:13.5px;color:var(--ink-2);cursor:pointer;
+    user-select:none;padding:6px 4px}
+  .chk input{width:16px;height:16px;accent-color:var(--brand);cursor:pointer}
+
+  /* TABELA / DEMONSTRATIVO */
+  .panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);
+    box-shadow:var(--shadow-sm);overflow:hidden}
+  table{width:100%;border-collapse:collapse}
+  thead th{position:sticky;top:60px;background:var(--surface-2);text-align:left;
+    font-size:11.5px;color:var(--ink-2);text-transform:uppercase;letter-spacing:.5px;
+    padding:12px 18px;border-bottom:1px solid var(--line);z-index:1}
+  thead th.r{text-align:right}
+  tbody td{padding:9px 18px;border-bottom:1px solid var(--line)}
+  tbody tr:last-child td{border-bottom:none}
+  td.v{text-align:right;font-family:var(--num);font-variant-numeric:tabular-nums;white-space:nowrap;font-weight:600}
+  .conta{display:flex;align-items:center;gap:9px}
+  .cod{color:var(--ink-3);font-family:var(--num);font-variant-numeric:tabular-nums;font-size:12.5px;min-width:96px;flex:0 0 auto}
+  .nome{flex:1}
+  .caret{width:16px;height:16px;flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;
+    color:var(--ink-3);cursor:pointer;border-radius:4px;transition:.15s;font-size:10px}
+  .caret.spacer{visibility:hidden}
+  .caret:hover{background:var(--brand-tint);color:var(--brand)}
+  tr.lvl1>td{background:var(--brand);color:#eaf6f5}
+  tr.lvl1 .cod{color:rgba(234,246,245,.72)} tr.lvl1 .caret{color:rgba(234,246,245,.9)}
+  tr.lvl1 .nome{font-weight:700;text-transform:uppercase;letter-spacing:.3px;font-size:13px}
+  tr.lvl1 .caret:hover{background:rgba(255,255,255,.2);color:#fff}
+  tr.lvl1 td.v{color:#eaf6f5}
+  tr.lvl2 .nome{font-weight:600}
+  tr.lvl3 .nome,tr.lvl4 .nome{color:var(--ink-2)}
+  tr.result>td{background:var(--brand-tint)}
+  tr.result .nome{font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--brand-2)}
+  tr.result td.v{font-size:17px}
+  .bar{height:7px;border-radius:4px;background:rgba(255,255,255,.25);overflow:hidden;min-width:60px;max-width:120px;flex:0 0 auto}
+  .bar>span{display:block;height:100%}
+
+  /* MODAL */
+  .modal-overlay{position:fixed;inset:0;background:rgba(9,28,32,.55);backdrop-filter:blur(2px);
+    z-index:80;display:flex;align-items:center;justify-content:center;padding:16px}
+  .modal-overlay.hidden{display:none}
+  .modal{background:var(--surface);width:100%;max-width:440px;border-radius:var(--r);box-shadow:var(--shadow-md)}
+  .modal-head{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--line)}
+  .modal-head h3{margin:0;font-family:var(--num);font-weight:600;font-size:17px}
+  .btn-x{background:transparent;border:none;font-size:18px;color:var(--ink-2);line-height:1}
+  .modal-body{padding:18px 20px;font-size:14.5px;color:var(--ink-2);line-height:1.6}
+  .modal-body ol{margin:10px 0 0;padding-left:20px} .modal-body li{margin-bottom:8px}
+  .modal-body b{color:var(--ink)}
+  .modal-foot{display:flex;justify-content:flex-end;padding:14px 20px;border-top:1px solid var(--line)}
+
+  .status{padding:28px 16px;text-align:center;color:var(--ink-2);font-size:14px}
+  .spin{display:inline-block;width:16px;height:16px;border:2px solid var(--line);
+    border-top-color:var(--brand);border-radius:50%;animation:sp .8s linear infinite;vertical-align:-3px;margin-right:8px}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  footer{color:var(--ink-3);font-size:12px;text-align:center;margin-top:16px;line-height:1.6}
+
+  @media (max-width:768px){
+    main{padding:16px 12px}
+    .kpi-grid{grid-template-columns:1fr}
+    .cod{min-width:70px;font-size:11.5px}
+    .bar{display:none}
+    thead th{top:60px}
+    thead th,tbody td{padding:8px 11px}
+  }
+  @media print{
+    body{background:#fff}
+    .topbar{position:static} .toolbar,.badge,.nav-btn,.chart-card,.bar{display:none !important}
+    .panel,.kpi{box-shadow:none}
+    tr.lvl1>td{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand-lockup">
+    <svg class="mark" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+      <rect width="64" height="64" rx="13" fill="#0a3a40"/>
+      <g stroke="#7fd4d0" stroke-width="3"><circle cx="24" cy="32" r="12"/><circle cx="44" cy="32" r="8"/></g>
+    </svg>
+    <div class="tb-title">Demonstrativo de Fluxo de Caixa<small>Belt Correias · Realizado</small></div>
+  </div>
+  <div class="spacer"></div>
+  <span class="badge" id="periodoBadge">—</span>
+  <button class="nav-btn" id="btnBaixar">⬇ Baixar</button>
+  <button class="nav-btn" id="btnRefresh">↻ Atualizar</button>
+</header>
+
+<!-- MODAL: instruções de instalação (iPhone / quando não há prompt nativo) -->
+<div id="modalInstall" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-head"><h3>Instalar o app no celular</h3>
+      <button class="btn-x" id="btnFecharInstall" aria-label="Fechar">✕</button></div>
+    <div class="modal-body" id="modalInstallBody"></div>
+    <div class="modal-foot"><button class="btn-ghost" id="btnOkInstall">Entendi</button></div>
+  </div>
+</div>
+
+<main>
+  <div class="page-head">
+    <h1>Fluxo de Caixa Realizado</h1>
+    <div class="ph-controls">
+      <label for="selMes">Período:</label>
+      <select id="selMes" class="control" style="min-width:170px"><option>—</option></select>
+    </div>
+  </div>
+
+  <section class="kpi-grid">
+    <div class="kpi ent"><div class="kpi-label">Entradas</div><div class="kpi-val pos" id="kpiEnt">—</div><div class="kpi-sub" id="kpiEntQtd">—</div></div>
+    <div class="kpi sai"><div class="kpi-label">Saídas</div><div class="kpi-val neg" id="kpiSai">—</div><div class="kpi-sub" id="kpiSaiQtd">—</div></div>
+    <div class="kpi res"><div class="kpi-label">Resultado do período</div><div class="kpi-val brand" id="kpiRes">—</div><div class="kpi-sub" id="kpiMov">—</div></div>
+  </section>
+
+  <div class="chart-card">
+    <h3>Composição por grupo (R$)</h3>
+    <div class="chart-wrap"><canvas id="chartGrupos"></canvas></div>
+  </div>
+
+  <div class="toolbar">
+    <div class="grow"><input type="search" id="busca" placeholder="Buscar conta ou código…"></div>
+    <label class="chk"><input type="checkbox" id="chkZeros" checked> Ocultar contas zeradas</label>
+    <button class="btn-ghost" id="btnExpand">Expandir tudo</button>
+    <button class="btn-ghost" id="btnCollapse">Recolher</button>
+    <button class="btn-ghost" id="btnCSV">Exportar CSV</button>
+    <button class="btn-ghost" id="btnPrint">Imprimir</button>
+  </div>
+
+  <div class="panel">
+    <table>
+      <thead><tr><th>Conta</th><th class="r">Valor (R$)</th></tr></thead>
+      <tbody id="corpo">
+        <tr><td colspan="2"><div class="status"><span class="spin"></span>Carregando dados da planilha…</div></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <footer id="rodape"></footer>
+</main>
+
+<script>
+/* ============================================================================
+   CONFIGURAÇÃO
+   O painel tenta buscar os dados de várias formas (na ordem abaixo) e usa a
+   primeira que realmente traz os lançamentos. Assim funciona tanto se a
+   planilha estiver "publicada na web" quanto apenas compartilhada por link.
+   ========================================================================== */
+const SHEET_ID = "1NKQsXxdLRsa9TKh-uHjW7T78xrl7lTksMDi_uurlJdY";          // ID da planilha
+const PUB_ID   = "2PACX-1vQ1kWVNlFi8fPEyrbH84nltbC2qfVC3sZWcHf0Zl40HtFx_WSkEXfzNKsN-bNGfXoLu1SZFAP836Adh"; // publicar na web
+const GID      = "0";
+
+const FONTES = [
+  { nome:"Publicado (CSV)", url:`https://docs.google.com/spreadsheets/d/e/${PUB_ID}/pub?gid=${GID}&single=true&output=csv` },
+  { nome:"Export (ID)",     url:`https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${GID}` },
+  { nome:"GViz (ID)",       url:`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${GID}` },
+];
+const COL = { data:0, recN:[3,4,5,6], pagN:[10,11,12,13], valor:17 };
+const PLANO = [{"cod": "01", "nome": "RECEITA SOBRE AS VENDAS E SERVIÇOS", "nivel": 1}, {"cod": "01.01", "nome": "Venda de Mercadorias", "nivel": 2}, {"cod": "01.02", "nome": "Prestação de Serviços", "nivel": 2}, {"cod": "02", "nome": "DEDUÇÃO SOBRE AS VENDAS E SERVIÇOS", "nivel": 1}, {"cod": "02.01", "nome": "Devolução Sobre as Vendas e Serviços", "nivel": 2}, {"cod": "02.02", "nome": "Abatimento/Desconto sobre as vendas", "nivel": 2}, {"cod": "02.03", "nome": "Simples Nacional", "nivel": 2}, {"cod": "02.04", "nome": "GA - Diferença de Alíquota de ICMS", "nivel": 2}, {"cod": "02.05", "nome": "Penalidades Fiscais e Administrativas (GOV)", "nivel": 2}, {"cod": "02.06", "nome": "ISSQN (Imposto de Serviço)", "nivel": 2}, {"cod": "02.07", "nome": "ICMS", "nivel": 2}, {"cod": "03", "nome": "CUSTO SOBRE AS VENDAS E SERVIÇOS", "nivel": 1}, {"cod": "03.01", "nome": "Compra de Mercadorias", "nivel": 2}, {"cod": "03.02", "nome": "Prestação de Serviços", "nivel": 2}, {"cod": "03.02.001", "nome": "Alimentação", "nivel": 3}, {"cod": "03.02.002", "nome": "Hospedagem", "nivel": 3}, {"cod": "03.02.003", "nome": "Combustível", "nivel": 3}, {"cod": "03.02.004", "nome": "Pedágio", "nivel": 3}, {"cod": "03.02.005", "nome": "Insumos", "nivel": 3}, {"cod": "03.02.005.001", "nome": "Estoque", "nivel": 4}, {"cod": "03.02.005.002", "nome": "Produção", "nivel": 4}, {"cod": "03.03", "nome": "Fretes e Transportes", "nivel": 2}, {"cod": "03.03.001", "nome": "Motoboy", "nivel": 3}, {"cod": "03.03.002", "nome": "Correios", "nivel": 3}, {"cod": "03.03.003", "nome": "Transportadoras", "nivel": 3}, {"cod": "03.03.003.001", "nome": "Entrada", "nivel": 4}, {"cod": "03.03.003.002", "nome": "Saída", "nivel": 4}, {"cod": "04", "nome": "DESPESAS ADMINISTRATIVAS", "nivel": 1}, {"cod": "04.01", "nome": "Aluguel", "nivel": 2}, {"cod": "04.02", "nome": "Energia Elétrica", "nivel": 2}, {"cod": "04.03", "nome": "Água", "nivel": 2}, {"cod": "04.04", "nome": "Telefonia", "nivel": 2}, {"cod": "04.05", "nome": "Internet", "nivel": 2}, {"cod": "04.06", "nome": "Aluguel de Maquinas e Equipamentos", "nivel": 2}, {"cod": "04.07", "nome": "Mensalidade Contabilidade", "nivel": 2}, {"cod": "04.07.001", "nome": "Rio Grande do Sul", "nivel": 3}, {"cod": "04.07.002", "nome": "Santa Catarina", "nivel": 3}, {"cod": "04.08", "nome": "Mensalidade do Sistema ERP", "nivel": 2}, {"cod": "04.08.001", "nome": "Plune", "nivel": 3}, {"cod": "04.08.002", "nome": "Gestão Click", "nivel": 3}, {"cod": "04.09", "nome": "Assinatura e Taxas de Outros Sistemas", "nivel": 2}, {"cod": "04.09.001", "nome": "Taxa de Benefícios VR", "nivel": 3}, {"cod": "04.09.002", "nome": "Software de Ponto Eletrônico", "nivel": 3}, {"cod": "04.09.003", "nome": "Rastreamento Veicular", "nivel": 3}, {"cod": "04.10", "nome": "Limpeza", "nivel": 2}, {"cod": "04.10.001", "nome": "Material de Limpeza", "nivel": 3}, {"cod": "04.10.002", "nome": "Limpeza Prédios", "nivel": 3}, {"cod": "04.10.003", "nome": "Limpeza Carros", "nivel": 3}, {"cod": "04.11", "nome": "Materiais Administrativos", "nivel": 2}, {"cod": "04.12", "nome": "Manutenção de Máquinas e Equipamentos", "nivel": 2}, {"cod": "04.12.001", "nome": "Equipamentos em Geral", "nivel": 3}, {"cod": "04.12.002", "nome": "Maquinas Industriais", "nivel": 3}, {"cod": "04.12.003", "nome": "Carros Empresariais", "nivel": 3}, {"cod": "04.13", "nome": "Manutenção Predial", "nivel": 2}, {"cod": "04.14", "nome": "Seguro de Veículos", "nivel": 2}, {"cod": "04.15", "nome": "Seguro Predial", "nivel": 2}, {"cod": "04.16", "nome": "Segurança Patrimonial", "nivel": 2}, {"cod": "04.17", "nome": "IPTU", "nivel": 2}, {"cod": "04.18", "nome": "IPVA/Multa Empresarial", "nivel": 2}, {"cod": "04.19", "nome": "Certificado Digital", "nivel": 2}, {"cod": "04.20", "nome": "Marketing Digital", "nivel": 2}, {"cod": "04.20.001", "nome": "E-mail Corporativo", "nivel": 3}, {"cod": "04.20.002", "nome": "Domínio e Hospedagem de Sites", "nivel": 3}, {"cod": "04.20.003", "nome": "Ferramentas de Produção de Conteúdo", "nivel": 3}, {"cod": "04.20.004", "nome": "Ferramentas de CRM e Comunicação", "nivel": 3}, {"cod": "04.20.005", "nome": "Publicidade e Propaganda", "nivel": 3}, {"cod": "04.20.006", "nome": "Taxas de Marketplace", "nivel": 3}, {"cod": "04.21", "nome": "Consultoria Empresarial", "nivel": 2}, {"cod": "05", "nome": "DESPESAS COM PESSOAL", "nivel": 1}, {"cod": "05.01", "nome": "Salários", "nivel": 2}, {"cod": "05.02", "nome": "Vale Alimentação", "nivel": 2}, {"cod": "05.03", "nome": "Vale Transporte", "nivel": 2}, {"cod": "05.04", "nome": "Comissões", "nivel": 2}, {"cod": "05.05", "nome": "Bônus", "nivel": 2}, {"cod": "05.06", "nome": "Férias", "nivel": 2}, {"cod": "05.07", "nome": "13° Salário", "nivel": 2}, {"cod": "05.08", "nome": "Assistência Médica", "nivel": 2}, {"cod": "05.09", "nome": "Treinamentos", "nivel": 2}, {"cod": "05.10", "nome": "Empréstimo", "nivel": 2}, {"cod": "05.11", "nome": "FGTS", "nivel": 2}, {"cod": "05.12", "nome": "Imposto De Renda", "nivel": 2}, {"cod": "05.13", "nome": "INSS", "nivel": 2}, {"cod": "05.14", "nome": "Pró Labore", "nivel": 2}, {"cod": "05.14.001", "nome": "Jorge Paulo Orengo", "nivel": 3}, {"cod": "05.14.002", "nome": "Izais Bica Leites", "nivel": 3}, {"cod": "05.14.003", "nome": "Jorge Garcia Orengo", "nivel": 3}, {"cod": "05.14.004", "nome": "Marcelo Schefer", "nivel": 3}, {"cod": "05.15", "nome": "Processo Trabalhista", "nivel": 2}, {"cod": "05.16", "nome": "Rescisão Trabalhista", "nivel": 2}, {"cod": "05.17", "nome": "Seguro De Vida Funcionários", "nivel": 2}, {"cod": "05.18", "nome": "Sindicato Do Comércio", "nivel": 2}, {"cod": "05.19", "nome": "Agencias De Estágio/Contratação", "nivel": 2}, {"cod": "05.20", "nome": "Uniformes", "nivel": 2}, {"cod": "06", "nome": "RECEITAS FINANCEIRAS", "nivel": 1}, {"cod": "06.01", "nome": "Rendimento de Aplicações Financeiras", "nivel": 2}, {"cod": "07", "nome": "DESPESAS FINANCEIRAS", "nivel": 1}, {"cod": "07.01", "nome": "Despesa com Emissão de Boletos Bancários", "nivel": 2}, {"cod": "07.02", "nome": "Tarifa de Manutenção de Conta", "nivel": 2}, {"cod": "07.03", "nome": "Juros/Lis Bancários", "nivel": 2}, {"cod": "07.04", "nome": "Capitalização", "nivel": 2}, {"cod": "07.05", "nome": "Consórcio", "nivel": 2}, {"cod": "07.06", "nome": "Despesas com Cartório", "nivel": 2}, {"cod": "07.07", "nome": "Emprestimo e Financiamento", "nivel": 2}, {"cod": "07.08", "nome": "Taxas Bancárias Diversas", "nivel": 2}, {"cod": "08", "nome": "RECEITAS NÃO OPERACIONAIS", "nivel": 1}, {"cod": "08.01", "nome": "Depósito a Identificar", "nivel": 2}, {"cod": "08.02", "nome": "Venda de Ativo Permanente", "nivel": 2}, {"cod": "08.03", "nome": "Outras Receitas", "nivel": 2}, {"cod": "09", "nome": "DESPESAS NÃO OPERACIONAIS", "nivel": 1}, {"cod": "09.01", "nome": "Despesas com Visitas Clientes", "nivel": 2}, {"cod": "09.01.001", "nome": "Alimentação", "nivel": 3}, {"cod": "09.01.002", "nome": "Combustível", "nivel": 3}, {"cod": "09.01.003", "nome": "Pedágio", "nivel": 3}, {"cod": "09.01.004", "nome": "Hospedagem", "nivel": 3}, {"cod": "09.02", "nome": "Compra de Ativos Permanente", "nivel": 2}, {"cod": "09.03", "nome": "Outras despesas", "nivel": 2}, {"cod": "10", "nome": "SIMPLES REMESSA", "nivel": 1}, {"cod": "RESULTADO", "nome": "RESULTADO FINAL", "nivel": 0}];
+
+/* ---------------------------- utilitários -------------------------------- */
+const fmt = new Intl.NumberFormat('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+const money = v => fmt.format(v || 0);
+
+function parseNum(s){
+  if(s==null) return 0;
+  if(typeof s==='number') return s;
+  s=String(s).trim().replace(/\s| /g,'').replace('R$','');
+  if(!s) return 0;
+  let neg=false;
+  if(/^\(.*\)$/.test(s)){neg=true;s=s.slice(1,-1);}
+  if(s[0]==='-'){neg=true;s=s.slice(1);}
+  if(s.includes('.')&&s.includes(',')) s=s.replace(/\./g,'').replace(',','.');
+  else if(s.includes(',')) s=s.replace(',','.');
+  const v=parseFloat(s);
+  return isNaN(v)?0:(neg?-v:v);
+}
+function toMonth(s){
+  s=String(s||'').trim(); if(!s) return '';
+  let m;
+  if(m=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/)) return `${m[1]}-${String(m[2]).padStart(2,'0')}`;
+  if(m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/)) return `${m[3]}-${String(m[2]).padStart(2,'0')}`;
+  return '';
+}
+function rotuloMes(ym){
+  if(!ym) return 'Todos os períodos';
+  const [a,m]=ym.split('-');
+  const n=['JAN','FEV','MAR','ABR','MAI','JUN','JUL','AGO','SET','OUT','NOV','DEZ'];
+  return `${n[(+m)-1]||m}/${a}`;
+}
+function parseCSV(text){
+  const rows=[]; let row=[], field='', q=false;
+  for(let i=0;i<text.length;i++){
+    const c=text[i];
+    if(q){ if(c==='"'){ if(text[i+1]==='"'){field+='"';i++;} else q=false; } else field+=c; }
+    else{
+      if(c==='"') q=true;
+      else if(c===','){ row.push(field); field=''; }
+      else if(c==='\n'){ row.push(field); rows.push(row); row=[]; field=''; }
+      else if(c!=='\r') field+=c;
+    }
+  }
+  if(field.length||row.length){ row.push(field); rows.push(row); }
+  return rows;
+}
+function textoProfundo(cells, cols){ let t=''; for(const c of cols){ const v=(cells[c]||'').toString().trim(); if(v) t=v; } return t; }
+const codigoDe = txt => (txt||'').toString().trim().split(/\s+/)[0] || '';
+
+/* ------------------------------ árvore ----------------------------------- */
+function montarArvore(){
+  const map=new Map(); const raizes=[];
+  for(const c of PLANO){ if(c.cod==='RESULTADO') continue; map.set(c.cod,{...c,direct:0,total:0,children:[]}); }
+  for(const node of map.values()){
+    const partes=node.cod.split('.');
+    if(partes.length===1) raizes.push(node);
+    else{ const pai=map.get(partes.slice(0,-1).join('.')); (pai?pai.children:raizes).push(node); }
+  }
+  return {map,raizes};
+}
+function resolver(map,cod){ let p=cod.split('.'); while(p.length){ const c=p.join('.'); if(map.has(c)) return map.get(c); p.pop(); } return null; }
+function somarTotais(node){ let t=node.direct; for(const ch of node.children) t+=somarTotais(ch); node.total=t; return t; }
+
+/* --------------------------- estado + cálculo ---------------------------- */
+let LINHAS=[], MESES=[], colapsados=new Set(), chartGrupos=null;
+
+function processar(mesSel){
+  const {map,raizes}=montarArvore();
+  let ent=0,sai=0,qEnt=0,qSai=0,qMov=0,naoClass=0;
+  for(const cells of LINHAS){
+    const ym=toMonth(cells[COL.data]);
+    if(mesSel && mesSel!=='__all__' && ym!==mesSel) continue;
+    const valor=parseNum(cells[COL.valor]);
+    const rec=textoProfundo(cells,COL.recN), pag=textoProfundo(cells,COL.pagN);
+    let cod='';
+    if(rec){ cod=codigoDe(rec); ent+=valor; qEnt++; }
+    else if(pag){ cod=codigoDe(pag); sai+=valor; qSai++; }
+    else continue;
+    qMov++;
+    const node=resolver(map,cod); if(node) node.direct+=valor; else naoClass+=valor;
+  }
+  for(const r of raizes) somarTotais(r);
+  const resultado=raizes.reduce((s,r)=>s+r.total,0)+naoClass;
+  return {map,raizes,ent,sai,resultado,qEnt,qSai,qMov,naoClass};
+}
+
+/* ----------------------------- gráfico ----------------------------------- */
+function renderChart(raizes){
+  if(typeof Chart==='undefined') return;
+  const grupos=raizes.filter(r=>Math.abs(r.total)>=0.005);
+  const labels=grupos.map(r=>r.cod+' '+r.nome.split(' ').slice(0,3).join(' '));
+  const dados=grupos.map(r=>+r.total.toFixed(2));
+  const cores=grupos.map(r=>r.total>=0?'#1a9455':'#cf3a2c');
+  const ctx=document.getElementById('chartGrupos').getContext('2d');
+  if(chartGrupos) chartGrupos.destroy();
+  chartGrupos=new Chart(ctx,{
+    type:'bar',
+    data:{labels,datasets:[{data:dados,backgroundColor:cores,borderRadius:6,maxBarThickness:34}]},
+    options:{
+      indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},
+        tooltip:{callbacks:{label:c=>'R$ '+money(c.raw)}}},
+      scales:{
+        x:{ticks:{callback:v=>v.toLocaleString('pt-BR')},grid:{color:'#eceff1'}},
+        y:{ticks:{font:{size:11}},grid:{display:false}}
+      }
+    }
+  });
+}
+
+/* ---------------------------- renderização ------------------------------- */
+function render(){
+  const mesSel=document.getElementById('selMes').value;
+  const hideZeros=document.getElementById('chkZeros').checked;
+  const termo=document.getElementById('busca').value.trim().toLowerCase();
+  const R=processar(mesSel);
+
+  document.getElementById('kpiEnt').textContent='R$ '+money(R.ent);
+  document.getElementById('kpiSai').textContent='R$ '+money(R.sai);
+  document.getElementById('kpiEntQtd').textContent=R.qEnt+' movimento(s)';
+  document.getElementById('kpiSaiQtd').textContent=R.qSai+' movimento(s)';
+  const kRes=document.getElementById('kpiRes');
+  kRes.textContent='R$ '+money(R.resultado);
+  kRes.className='kpi-val '+(R.resultado>=0?'pos':'neg');
+  document.getElementById('kpiMov').textContent=R.qMov+' lançamentos no período';
+  document.getElementById('periodoBadge').textContent=rotuloMes(mesSel==='__all__'?'':mesSel);
+
+  renderChart(R.raizes);
+
+  let maxAbs=0; for(const r of R.raizes) maxAbs=Math.max(maxAbs,Math.abs(r.total)); maxAbs=maxAbs||1;
+
+  const corpo=document.getElementById('corpo'); corpo.innerHTML='';
+  const frag=document.createDocumentFragment();
+
+  function casa(node){
+    if(!termo) return true;
+    if(node.cod.toLowerCase().includes(termo)||node.nome.toLowerCase().includes(termo)) return true;
+    return node.children.some(casa);
+  }
+  function ancestralColapsado(node){
+    let p=node.cod.split('.'); p.pop();
+    while(p.length){ if(colapsados.has(p.join('.'))) return true; p.pop(); }
+    return false;
+  }
+  function linha(node){
+    const mostra = casa(node) && !(hideZeros && Math.abs(node.total)<0.005) && !ancestralColapsado(node);
+    if(mostra){
+      const tr=document.createElement('tr');
+      tr.className='lvl'+node.nivel;
+      const temFilhos=node.children.length>0, colapsado=colapsados.has(node.cod);
+      const indent=(node.nivel-1)*18;
+      const barra = node.nivel===1
+        ? `<div class="bar"><span style="width:${(Math.abs(node.total)/maxAbs*100).toFixed(1)}%;background:#eaf6f5"></span></div>` : '';
+      const corVal = node.nivel===1 ? '#eaf6f5'
+        : (Math.abs(node.total)<0.005?'var(--ink-3)':(node.total>=0?'var(--green)':'var(--red)'));
+      tr.innerHTML=`
+        <td><div class="conta" style="padding-left:${indent}px">
+          <span class="caret ${temFilhos?'':'spacer'}" data-cod="${node.cod}">${temFilhos?(colapsado?'▶':'▼'):'•'}</span>
+          <span class="cod">${node.cod}</span>
+          <span class="nome">${node.nome}</span>${barra}
+        </div></td>
+        <td class="v" style="color:${corVal}">${money(node.total)}</td>`;
+      frag.appendChild(tr);
+    }
+    for(const ch of node.children) linha(ch);
+  }
+  for(const r of R.raizes) linha(r);
+
+  const trR=document.createElement('tr'); trR.className='result';
+  trR.innerHTML=`<td><div class="conta"><span class="caret spacer">•</span>
+     <span class="cod"></span><span class="nome">Resultado Final</span></div></td>
+     <td class="v" style="color:${R.resultado>=0?'var(--green)':'var(--red)'}">${money(R.resultado)}</td>`;
+  frag.appendChild(trR);
+  corpo.appendChild(frag);
+
+  if(R.naoClass){
+    const avi=document.createElement('tr');
+    avi.innerHTML=`<td colspan="2" style="color:var(--red);font-size:13px;padding:10px 18px">
+      ⚠ R$ ${money(R.naoClass)} em lançamentos com conta fora do plano (não classificados).</td>`;
+    corpo.appendChild(avi);
+  }
+
+  corpo.querySelectorAll('.caret[data-cod]').forEach(el=>{
+    if(el.classList.contains('spacer')) return;
+    el.addEventListener('click',()=>{
+      const c=el.dataset.cod;
+      colapsados.has(c)?colapsados.delete(c):colapsados.add(c);
+      render();
+    });
+  });
+}
+
+/* ------------------------------- carga ----------------------------------- */
+// Conta quantas linhas têm uma conta classificável (entrada OU saída preenchida)
+function avaliar(rows){
+  const body=rows.slice(1);
+  let cls=0, maxc=0;
+  for(const r of body){
+    maxc=Math.max(maxc, r.length);
+    if(textoProfundo(r,COL.recN) || textoProfundo(r,COL.pagN)) cls++;
+  }
+  return { linhas:body.length, classificaveis:cls, colunas:maxc,
+           header:(rows[0]||[]).slice(0,4).map(s=>String(s).slice(0,22)).join(' | ') };
+}
+
+async function tentarFonte(f){
+  const sep = f.url.includes('?') ? '&' : '?';
+  const resp = await fetch(f.url + sep + '_=' + Date.now());
+  const txt = await resp.text();
+  if(!resp.ok) return { f, ok:false, motivo:'HTTP '+resp.status };
+  if(/^\s*</.test(txt)) return { f, ok:false, motivo:'veio HTML (não publicada / sem acesso)' };
+  const rows = parseCSV(txt).filter(r=>r.some(c=>(c||'').trim()!==''));
+  const d = avaliar(rows);
+  if(rows.length<=1) return { f, ok:false, motivo:'sem dados', d };
+  if(d.classificaveis===0) return { f, ok:false, motivo:`0 contas reconhecidas (${d.colunas} col.)`, d };
+  return { f, ok:true, rows, d };
+}
+
+async function carregar(){
+  const corpo=document.getElementById('corpo');
+  corpo.innerHTML=`<tr><td colspan="2"><div class="status"><span class="spin"></span>Carregando dados da planilha…</div></td></tr>`;
+
+  const diag=[];
+  let vencedor=null;
+  for(const f of FONTES){
+    try{
+      const r=await tentarFonte(f);
+      diag.push(`${f.nome}: ${r.ok?('OK — '+r.d.classificaveis+' lançamentos'):('falhou — '+r.motivo)}`);
+      if(r.ok){ vencedor=r; break; }
+    }catch(e){
+      diag.push(`${f.nome}: erro de rede/CORS (${e.message})`);
+    }
+  }
+
+  if(!vencedor){
+    corpo.innerHTML=`<tr><td colspan="2"><div class="status" style="color:var(--red);text-align:left">
+      <b>Não consegui ler os lançamentos da planilha.</b><br><br>
+      ${diag.map(d=>'• '+d).join('<br>')}<br><br>
+      <span style="color:var(--ink-2)">Para o painel enxergar a planilha, faça <b>uma</b> destas opções no Google Sheets:</span><br>
+      <span style="color:var(--ink-2)">1) <b>Compartilhar → Acesso geral → Qualquer pessoa com o link: Leitor</b>; ou</span><br>
+      <span style="color:var(--ink-2)">2) <b>Arquivo → Compartilhar → Publicar na web → a aba do DFC (valores) → CSV</b>.</span>
+      </div></td></tr>`;
+    document.getElementById('rodape').innerHTML='Diagnóstico de fontes: '+diag.join(' · ');
+    return;
+  }
+
+  LINHAS=vencedor.rows.slice(1);
+  const set=new Set();
+  for(const r of LINHAS){ const ym=toMonth(r[COL.data]); if(ym) set.add(ym); }
+  MESES=[...set].sort();
+  const sel=document.getElementById('selMes'); sel.innerHTML='';
+  MESES.forEach(ym=>{ const o=document.createElement('option'); o.value=ym; o.textContent=rotuloMes(ym); sel.appendChild(o); });
+  const oAll=document.createElement('option'); oAll.value='__all__'; oAll.textContent='Todos os períodos'; sel.appendChild(oAll);
+  sel.value = MESES.length ? MESES[MESES.length-1] : '__all__';
+
+  document.getElementById('rodape').innerHTML=
+    `Fonte: <b>${vencedor.f.nome}</b> · ${LINHAS.length} lançamentos · `+
+    `última leitura ${new Date().toLocaleString('pt-BR')}`;
+  render();
+}
+
+/* ---------------------- exportar / imprimir / eventos -------------------- */
+function exportarCSV(){
+  const R=processar(document.getElementById('selMes').value);
+  const hideZeros=document.getElementById('chkZeros').checked;
+  const linhas=[['Codigo','Conta','Nivel','Valor']];
+  R.raizes.forEach(function w(n){
+    if(!(hideZeros && Math.abs(n.total)<0.005))
+      linhas.push([n.cod,n.nome,n.nivel,n.total.toFixed(2).replace('.',',')]);
+    n.children.forEach(w);
+  });
+  linhas.push(['','RESULTADO FINAL','',R.resultado.toFixed(2).replace('.',',')]);
+  const csv=linhas.map(r=>r.map(c=>{c=String(c);return /[",;\n]/.test(c)?'"'+c.replace(/"/g,'""')+'"':c;}).join(';')).join('\n');
+  const blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download=`dfc_${document.getElementById('selMes').value==='__all__'?'todos':document.getElementById('selMes').value}.csv`; a.click();
+}
+
+document.getElementById('btnRefresh').addEventListener('click',carregar);
+document.getElementById('selMes').addEventListener('change',render);
+document.getElementById('chkZeros').addEventListener('change',render);
+document.getElementById('busca').addEventListener('input',render);
+document.getElementById('btnCSV').addEventListener('click',exportarCSV);
+document.getElementById('btnPrint').addEventListener('click',()=>window.print());
+document.getElementById('btnExpand').addEventListener('click',()=>{colapsados.clear();render();});
+document.getElementById('btnCollapse').addEventListener('click',()=>{
+  colapsados=new Set(PLANO.filter(c=>c.cod!=='RESULTADO'&&c.cod.indexOf('.')===-1).map(c=>c.cod));
+  render();
+});
+
+/* ============================================================================
+   PWA — instalação no celular ("Baixar") + service worker
+   ========================================================================== */
+let promptInstalar = null;
+
+// Android/Chrome: captura o evento para disparar a instalação nativa depois.
+window.addEventListener('beforeinstallprompt', (e)=>{
+  e.preventDefault();
+  promptInstalar = e;
+});
+
+function appJaInstalado(){
+  return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+}
+
+function abrirModalInstall(html){
+  document.getElementById('modalInstallBody').innerHTML = html;
+  document.getElementById('modalInstall').classList.remove('hidden');
+}
+function fecharModalInstall(){ document.getElementById('modalInstall').classList.add('hidden'); }
+document.getElementById('btnFecharInstall').addEventListener('click', fecharModalInstall);
+document.getElementById('btnOkInstall').addEventListener('click', fecharModalInstall);
+
+document.getElementById('btnBaixar').addEventListener('click', async ()=>{
+  if(appJaInstalado()){
+    abrirModalInstall('✅ O app <b>já está instalado</b> neste dispositivo. Abra pelo ícone <b>DFC Belt</b> na tela inicial.');
+    return;
+  }
+  // 1) Android/Chrome com prompt nativo disponível
+  if(promptInstalar){
+    promptInstalar.prompt();
+    try{ await promptInstalar.userChoice; }catch(_){}
+    promptInstalar = null;
+    return;
+  }
+  // 2) iPhone/iPad (Safari não tem prompt — instrução manual)
+  const ua = navigator.userAgent || '';
+  const ehIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1);
+  if(ehIOS){
+    abrirModalInstall(
+      'No iPhone/iPad, use o <b>Safari</b> e:' +
+      '<ol><li>Toque no botão <b>Compartilhar</b> (o quadrado com a seta para cima).</li>' +
+      '<li>Escolha <b>Adicionar à Tela de Início</b>.</li>' +
+      '<li>Confirme em <b>Adicionar</b>.</li></ol>' +
+      'O ícone <b>DFC Belt</b> vai aparecer como um aplicativo.');
+    return;
+  }
+  // 3) Outros casos (navegador sem suporte / já dispensado)
+  abrirModalInstall(
+    'Para instalar, abra este painel no <b>Chrome</b> (Android) ou <b>Safari</b> (iPhone).' +
+    '<ol><li><b>Android/Chrome:</b> menu <b>⋮</b> → <b>Instalar aplicativo</b> / <b>Adicionar à tela inicial</b>.</li>' +
+    '<li><b>iPhone/Safari:</b> <b>Compartilhar</b> → <b>Adicionar à Tela de Início</b>.</li></ol>' +
+    'No computador, o Chrome mostra um ícone de instalação na barra de endereço.');
+});
+
+// Registra o service worker (necessário para instalar e abrir offline).
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('sw.js').catch(()=>{});
+  });
+}
+
+carregar();
+</script>
+</body>
+</html>
