@@ -1,0 +1,21 @@
+{
+  "id": "belt-dfc-realizado",
+  "name": "DFC Belt Correias — Fluxo de Caixa Realizado",
+  "short_name": "DFC Belt",
+  "description": "Demonstrativo de Fluxo de Caixa Realizado da Belt Correias.",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#eceff1",
+  "theme_color": "#0c353b",
+  "lang": "pt-BR",
+  "dir": "ltr",
+  "categories": ["business", "finance", "productivity"],
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
