@@ -214,6 +214,12 @@
   </div>
   <div class="spacer"></div>
   <select id="selMes" class="hdr-select" title="Período"><option>—</option></select>
+  <select id="selEmpresa" class="hdr-select" title="Empresa">
+    <option value="__all__">Todas</option>
+    <option value="BELT">BELT</option>
+    <option value="B3">B3</option>
+    <option value="MBK">MBK</option>
+  </select>
   <button class="nav-btn btn-install" id="btnBaixar">⬇ Baixar app</button>
   <button class="nav-btn" id="btnPrint">🖨 Imprimir</button>
   <button class="nav-btn" id="btnRefresh">↻ Atualizar</button>
@@ -278,7 +284,16 @@ const FONTES = [
   { nome:"Export (ID)",     url:`https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${GID}` },
   { nome:"GViz (ID)",       url:`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${GID}` },
 ];
-const COL = { data:0, recN:[3,4,5,6], pagN:[10,11,12,13], valor:17 };
+const COL = { data:0, conta:1, recN:[4,5,6,7], pagN:[11,12,13,14], valor:18 };
+
+/* Mapa Conta Movimento (coluna B da base) -> Empresa do grupo Belt.
+   Chaves normalizadas (MAIÚSCULAS, sem acento). Edite aqui se surgir conta nova. */
+const EMPRESAS_CONTA = {"B3 ITAU": "B3", "B3 INTER": "B3", "B3 CAIXA": "B3", "ITAU": "BELT", "BANRISUL": "BELT", "CX BALCAO": "BELT", "RESERVA LEGAL": "BELT", "CX DESPESAS": "BELT", "CAIXA": "BELT", "BRADESCO": "BELT", "ITAU RESERVA AVAL": "BELT", "INVESTIMENTOS ITAU": "BELT", "INVESTIMENTOS BANRISUL": "BELT", "CREDITO DE TERCEIROS": "BELT", "ADTO FORNECEDOR": "BELT", "CT TRANSITORIA": "BELT", "MBK": "MBK", "MERCADO PAGO": "MBK"};
+function _normConta(s){
+  s=String(s||'').trim().toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+  return s.replace(/\s+/g,' ');
+}
+function empresaDaConta(contaTexto){ return EMPRESAS_CONTA[_normConta(contaTexto)] || ''; }
 
 /* Ponto de equilíbrio (R$) = Custos/Despesas Fixos / Margem de Contribuição %,
    onde MC% = (Receita - Custos/Despesas Variáveis) / Receita.
@@ -361,7 +376,7 @@ function somarTotais(node){ let t=node.direct; for(const ch of node.children) t+
 /* --------------------------- estado + cálculo ---------------------------- */
 let LINHAS=[], MESES=[], colapsados=new Set(), chartDiario=null;
 
-function processar(mesSel){
+function processar(mesSel, empresaSel){
   const {map,raizes}=montarArvore();
   let ent=0,sai=0,qEnt=0,qSai=0,qMov=0,naoClass=0;
   const porDiaMap={};  // 'AAAA-MM-DD' -> resultado líquido do dia (entradas - saídas)
@@ -369,6 +384,8 @@ function processar(mesSel){
   for(const cells of LINHAS){
     const ym=toMonth(cells[COL.data]);
     if(mesSel && mesSel!=='__all__' && ym!==mesSel) continue;
+    // Filtro por empresa (pela Conta Movimento, coluna B)
+    if(empresaSel && empresaSel!=='__all__' && empresaDaConta(cells[COL.conta])!==empresaSel) continue;
     const valor=parseNum(cells[COL.valor]);
     const rec=textoProfundo(cells,COL.recN), pag=textoProfundo(cells,COL.pagN);
     let cod='';
@@ -441,9 +458,10 @@ function renderChartResultado(R, mesSel){
 /* ---------------------------- renderização ------------------------------- */
 function render(){
   const mesSel=document.getElementById('selMes').value;
+  const empresaSel=document.getElementById('selEmpresa').value;
   const hideZeros=document.getElementById('chkZeros').checked;
   const termo=document.getElementById('busca').value.trim().toLowerCase();
-  const R=processar(mesSel);
+  const R=processar(mesSel, empresaSel);
 
   document.getElementById('kpiEnt').textContent='R$ '+money(R.ent);
   document.getElementById('kpiSai').textContent='R$ '+money(R.sai);
@@ -611,7 +629,7 @@ async function carregar(){
 
 /* ---------------------- exportar / imprimir / eventos -------------------- */
 function exportarCSV(){
-  const R=processar(document.getElementById('selMes').value);
+  const R=processar(document.getElementById('selMes').value, document.getElementById('selEmpresa').value);
   const hideZeros=document.getElementById('chkZeros').checked;
   const receita01=(R.map.get('01') && R.map.get('01').total) || 0;
   const pct = v => receita01!==0 ? (v/receita01*100).toFixed(1).replace('.',',')+'%' : '';
@@ -630,6 +648,7 @@ function exportarCSV(){
 
 document.getElementById('btnRefresh').addEventListener('click',carregar);
 document.getElementById('selMes').addEventListener('change',render);
+document.getElementById('selEmpresa').addEventListener('change',render);
 document.getElementById('chkZeros').addEventListener('change',render);
 document.getElementById('busca').addEventListener('input',render);
 document.getElementById('btnCSV').addEventListener('click',exportarCSV);
