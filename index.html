@@ -164,7 +164,33 @@
   .modal-body{padding:18px 20px;font-size:14.5px;color:var(--ink-2);line-height:1.6}
   .modal-body ol{margin:10px 0 0;padding-left:20px} .modal-body li{margin-bottom:8px}
   .modal-body b{color:var(--ink)}
-  .modal-foot{display:flex;justify-content:flex-end;padding:14px 20px;border-top:1px solid var(--line)}
+  .modal-foot{display:flex;justify-content:flex-end;gap:10px;padding:14px 20px;border-top:1px solid var(--line)}
+  .modal-wide{max-width:980px}
+  .extrato-body{padding:0;max-height:70vh;overflow:auto}
+
+  /* Coluna / botão do olho (ver extrato) */
+  th.eye-col{width:40px}
+  td.eye{width:40px;text-align:center;padding:4px 0}
+  .btn-eye{background:transparent;border:none;cursor:pointer;font-size:15px;line-height:1;opacity:.55;
+    padding:4px 6px;border-radius:6px;transition:.15s}
+  .btn-eye:hover{opacity:1;background:var(--brand-tint)}
+  tr.lvl1 .btn-eye{filter:grayscale(1) brightness(3)}
+  tr.lvl1 .btn-eye:hover{background:rgba(255,255,255,.2)}
+
+  /* Tabela do extrato */
+  table.extrato{width:100%;border-collapse:collapse;font-size:12.5px}
+  table.extrato thead th{position:sticky;top:0;background:var(--surface-2);text-align:left;
+    font-size:11px;color:var(--ink-2);text-transform:uppercase;letter-spacing:.3px;
+    padding:9px 10px;border-bottom:1px solid var(--line);white-space:nowrap;z-index:1}
+  table.extrato thead th.r{text-align:right}
+  table.extrato tbody td{padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+  table.extrato tbody td.r{text-align:right;font-family:var(--num);font-variant-numeric:tabular-nums;white-space:nowrap}
+  table.extrato tbody tr:hover{background:var(--surface-2)}
+  table.extrato tfoot td{padding:9px 10px;border-top:2px solid var(--line-2);font-weight:700;
+    font-family:var(--num);text-align:right;white-space:nowrap;background:var(--brand-tint)}
+  table.extrato tfoot td.lbl{text-align:left;font-family:var(--sans);text-transform:uppercase;letter-spacing:.3px}
+  .ex-pos{color:var(--green)} .ex-neg{color:var(--red)}
+  .extrato-vazio{padding:24px 16px;text-align:center;color:var(--ink-2)}
 
   .status{padding:28px 16px;text-align:center;color:var(--ink-2);font-size:14px}
   .spin{display:inline-block;width:16px;height:16px;border:2px solid var(--line);
@@ -225,6 +251,19 @@
   <button class="nav-btn" id="btnRefresh">↻ Atualizar</button>
 </header>
 
+<!-- MODAL: extrato de lançamentos do centro de custo -->
+<div id="modalExtrato" class="modal-overlay hidden">
+  <div class="modal modal-wide">
+    <div class="modal-head"><h3 id="extratoTitulo">Extrato</h3>
+      <button class="btn-x" id="btnFecharExtrato" aria-label="Fechar">✕</button></div>
+    <div class="modal-body extrato-body" id="extratoBody"></div>
+    <div class="modal-foot">
+      <button class="btn-ghost" id="btnExtratoCSV">Exportar CSV</button>
+      <button class="btn-ghost" id="btnOkExtrato">Fechar</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL: instruções de instalação (iPhone / quando não há prompt nativo) -->
 <div id="modalInstall" class="modal-overlay hidden">
   <div class="modal">
@@ -250,7 +289,7 @@
 
   <div class="toolbar">
     <div class="grow"><input type="search" id="busca" placeholder="Buscar conta ou código…"></div>
-    <label class="chk"><input type="checkbox" id="chkZeros" checked> Ocultar contas zeradas</label>
+    <label class="chk"><input type="checkbox" id="chkZeros"> Ocultar contas zeradas</label>
     <button class="btn-ghost" id="btnExpand">Expandir tudo</button>
     <button class="btn-ghost" id="btnCollapse">Recolher</button>
     <button class="btn-ghost" id="btnCSV">Exportar CSV</button>
@@ -258,9 +297,9 @@
 
   <div class="panel">
     <table>
-      <thead><tr><th>Conta</th><th class="r">Valor (R$)</th><th class="r">%</th></tr></thead>
+      <thead><tr><th>Conta</th><th class="eye-col"></th><th class="r">Valor (R$)</th><th class="r">%</th></tr></thead>
       <tbody id="corpo">
-        <tr><td colspan="3"><div class="status"><span class="spin"></span>Carregando dados da planilha…</div></td></tr>
+        <tr><td colspan="4"><div class="status"><span class="spin"></span>Carregando dados da planilha…</div></td></tr>
       </tbody>
     </table>
   </div>
@@ -285,6 +324,8 @@ const FONTES = [
   { nome:"GViz (ID)",       url:`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${GID}` },
 ];
 const COL = { data:0, conta:1, recN:[4,5,6,7], pagN:[11,12,13,14], valor:18 };
+/* Colunas usadas no EXTRATO (pop-up do olho): A,B,D, I/P, J/Q, K/R, S */
+const COLX = { data:0, conta:1, parceiro:3, faturaR:8, faturaP:15, subR:9, subP:16, obsR:10, obsP:17, valor:18 };
 
 /* Mapa Conta Movimento (coluna B da base) -> Empresa do grupo Belt.
    Chaves normalizadas (MAIÚSCULAS, sem acento). Edite aqui se surgir conta nova. */
@@ -525,6 +566,7 @@ function render(){
           <span class="cod">${node.cod}</span>
           <span class="nome">${node.nome}</span>${barra}
         </div></td>
+        <td class="eye"><button class="btn-eye" data-ver="${node.cod}" title="Ver lançamentos">👁</button></td>
         <td class="v" style="color:${corVal}">${money(node.total)}</td>
         <td class="p">${fmtPct(pc)}</td>`;
       frag.appendChild(tr);
@@ -536,6 +578,7 @@ function render(){
   const trR=document.createElement('tr'); trR.className='result';
   trR.innerHTML=`<td><div class="conta"><span class="caret spacer">•</span>
      <span class="cod"></span><span class="nome">Resultado Final</span></div></td>
+     <td class="eye"></td>
      <td class="v" style="color:${R.resultado>=0?'var(--green)':'var(--red)'}">${money(R.resultado)}</td>
      <td class="p">${fmtPct(pctDe(R.resultado))}</td>`;
   frag.appendChild(trR);
@@ -543,7 +586,7 @@ function render(){
 
   if(R.naoClass){
     const avi=document.createElement('tr');
-    avi.innerHTML=`<td colspan="3" style="color:var(--red);font-size:13px;padding:10px 18px">
+    avi.innerHTML=`<td colspan="4" style="color:var(--red);font-size:13px;padding:10px 18px">
       ⚠ R$ ${money(R.naoClass)} em lançamentos com conta fora do plano (não classificados).</td>`;
     corpo.appendChild(avi);
   }
@@ -555,6 +598,9 @@ function render(){
       colapsados.has(c)?colapsados.delete(c):colapsados.add(c);
       render();
     });
+  });
+  corpo.querySelectorAll('.btn-eye[data-ver]').forEach(el=>{
+    el.addEventListener('click',()=> abrirExtrato(el.dataset.ver));
   });
 }
 
@@ -586,7 +632,7 @@ async function tentarFonte(f){
 
 async function carregar(){
   const corpo=document.getElementById('corpo');
-  corpo.innerHTML=`<tr><td colspan="3"><div class="status"><span class="spin"></span>Carregando dados da planilha…</div></td></tr>`;
+  corpo.innerHTML=`<tr><td colspan="4"><div class="status"><span class="spin"></span>Carregando dados da planilha…</div></td></tr>`;
 
   const diag=[];
   let vencedor=null;
@@ -601,7 +647,7 @@ async function carregar(){
   }
 
   if(!vencedor){
-    corpo.innerHTML=`<tr><td colspan="3"><div class="status" style="color:var(--red);text-align:left">
+    corpo.innerHTML=`<tr><td colspan="4"><div class="status" style="color:var(--red);text-align:left">
       <b>Não consegui ler os lançamentos da planilha.</b><br><br>
       ${diag.map(d=>'• '+d).join('<br>')}<br><br>
       <span style="color:var(--ink-2)">Para o painel enxergar a planilha, faça <b>uma</b> destas opções no Google Sheets:</span><br>
@@ -657,6 +703,123 @@ document.getElementById('btnExpand').addEventListener('click',()=>{colapsados.cl
 document.getElementById('btnCollapse').addEventListener('click',()=>{
   colapsados=new Set(PLANO.filter(c=>c.cod!=='RESULTADO'&&c.cod.indexOf('.')===-1).map(c=>c.cod));
   render();
+});
+
+/* ============================================================================
+   EXTRATO (pop-up do olho) — lançamentos de um centro de custo
+   ========================================================================== */
+let extratoAtual = { titulo:'', linhas:[] };  // guardado para o Exportar CSV
+
+// Código de classificação de um movimento (receber OU pagar, nível mais profundo)
+function codMovimento(cells){
+  const rec=textoProfundo(cells,COL.recN), pag=textoProfundo(cells,COL.pagN);
+  if(rec) return codigoDe(rec);
+  if(pag) return codigoDe(pag);
+  return '';
+}
+
+function abrirExtrato(cod){
+  const mesSel=document.getElementById('selMes').value;
+  const empresaSel=document.getElementById('selEmpresa').value;
+
+  // nome da conta para o título
+  const no = (function(){ let p=cod.split('.'); while(p.length){ const c=p.join('.');
+      const f=PLANO.find(x=>x.cod===c); if(f) return f; p.pop(); } return null; })();
+  const nomeConta = no ? (no.cod+' '+no.nome) : cod;
+
+  // Filtra os lançamentos do centro de custo (a conta clicada e suas filhas),
+  // respeitando os filtros atuais de mês e empresa.
+  const movs=[];
+  for(const cells of LINHAS){
+    const ym=toMonth(cells[COL.data]);
+    if(mesSel && mesSel!=='__all__' && ym!==mesSel) continue;
+    if(empresaSel && empresaSel!=='__all__' && empresaDaConta(cells[COL.conta])!==empresaSel) continue;
+    const cm=codMovimento(cells);
+    if(!cm) continue;
+    if(!(cm===cod || cm.startsWith(cod+'.'))) continue;
+    movs.push(cells);
+  }
+  // ordena por data
+  movs.sort((a,b)=> toISO(a[COL.data]).localeCompare(toISO(b[COL.data])));
+
+  // monta as linhas do extrato
+  const umVal = c => (c===undefined||c===null) ? '' : String(c).trim();
+  const primeiro = (...xs)=>{ for(const x of xs){ const s=umVal(x); if(s) return s; } return ''; };
+
+  let totEnt=0, totSai=0, saldo=0;
+  const linhas = movs.map(cells=>{
+    const valor = parseNum(cells[COL.valor]);
+    const ent = valor>0 ? valor : 0;
+    const sai = valor<0 ? -valor : 0;
+    totEnt+=ent; totSai+=sai; saldo+=valor;
+    return {
+      data:   umVal(cells[COLX.data]),
+      conta:  umVal(cells[COLX.conta]),
+      parceiro: umVal(cells[COLX.parceiro]),
+      fatura: primeiro(cells[COLX.faturaR], cells[COLX.faturaP]),
+      sub:    primeiro(cells[COLX.subR], cells[COLX.subP]),
+      obs:    primeiro(cells[COLX.obsR], cells[COLX.obsP]),
+      ent, sai, saldo
+    };
+  });
+
+  extratoAtual = { titulo:nomeConta, linhas };
+
+  // renderiza
+  const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const corpoHtml = linhas.length ? `
+    <table class="extrato">
+      <thead><tr>
+        <th>Data</th><th>Conta Movimento</th><th>Parceiro</th><th>Fatura</th>
+        <th>Sub-Nº</th><th>Observação</th>
+        <th class="r">Entrada</th><th class="r">Saída</th><th class="r">Saldo</th>
+      </tr></thead>
+      <tbody>
+        ${linhas.map(l=>`<tr>
+          <td>${esc(l.data)}</td><td>${esc(l.conta)}</td><td>${esc(l.parceiro)}</td>
+          <td>${esc(l.fatura)}</td><td>${esc(l.sub)}</td><td>${esc(l.obs)}</td>
+          <td class="r ex-pos">${l.ent?money(l.ent):''}</td>
+          <td class="r ex-neg">${l.sai?money(l.sai):''}</td>
+          <td class="r" style="color:${l.saldo>=0?'var(--green)':'var(--red)'}">${money(l.saldo)}</td>
+        </tr>`).join('')}
+      </tbody>
+      <tfoot><tr>
+        <td class="lbl" colspan="6">TOTAL · ${linhas.length} lançamento(s)</td>
+        <td class="ex-pos">${money(totEnt)}</td>
+        <td class="ex-neg">${money(totSai)}</td>
+        <td style="color:${(totEnt-totSai)>=0?'var(--green)':'var(--red)'}">${money(totEnt-totSai)}</td>
+      </tr></tfoot>
+    </table>` : `<div class="extrato-vazio">Nenhum lançamento para esta conta no período/empresa selecionados.</div>`;
+
+  document.getElementById('extratoTitulo').textContent = 'Extrato · '+nomeConta;
+  document.getElementById('extratoBody').innerHTML = corpoHtml;
+  document.getElementById('modalExtrato').classList.remove('hidden');
+}
+
+function fecharExtrato(){ document.getElementById('modalExtrato').classList.add('hidden'); }
+
+function exportarExtratoCSV(){
+  const L=extratoAtual.linhas;
+  if(!L.length) return;
+  const cab=['Data','Conta Movimento','Parceiro','Fatura','Sub-Numero','Observacao','Entrada','Saida','Saldo'];
+  const linhas=[cab];
+  for(const l of L){
+    linhas.push([l.data,l.conta,l.parceiro,l.fatura,l.sub,l.obs,
+      l.ent?l.ent.toFixed(2).replace('.',','):'',
+      l.sai?l.sai.toFixed(2).replace('.',','):'',
+      l.saldo.toFixed(2).replace('.',',')]);
+  }
+  const csv=linhas.map(r=>r.map(c=>{c=String(c);return /[",;\n]/.test(c)?'"'+c.replace(/"/g,'""')+'"':c;}).join(';')).join('\n');
+  const blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download='extrato_'+(extratoAtual.titulo.split(' ')[0]||'conta')+'.csv'; a.click();
+}
+
+document.getElementById('btnFecharExtrato').addEventListener('click', fecharExtrato);
+document.getElementById('btnOkExtrato').addEventListener('click', fecharExtrato);
+document.getElementById('btnExtratoCSV').addEventListener('click', exportarExtratoCSV);
+document.getElementById('modalExtrato').addEventListener('click', e=>{
+  if(e.target.id==='modalExtrato') fecharExtrato();   // clicar fora fecha
 });
 
 /* ============================================================================
