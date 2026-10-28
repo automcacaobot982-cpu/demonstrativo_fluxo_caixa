@@ -188,6 +188,8 @@
   table.extrato tbody td{padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:top;
     overflow-wrap:anywhere;word-break:break-word}
   table.extrato tbody td.r{text-align:right;font-family:var(--num);font-variant-numeric:tabular-nums}
+  /* Coluna Data: não quebra, mostra a data inteira (02/10/2026) */
+  table.extrato td:first-child,table.extrato th:first-child{white-space:nowrap;word-break:normal;overflow-wrap:normal}
   table.extrato tbody tr:hover{background:var(--surface-2)}
   table.extrato tfoot td{padding:9px 8px;border-top:2px solid var(--line-2);font-weight:700;
     font-family:var(--num);text-align:right;background:var(--brand-tint);overflow-wrap:anywhere}
@@ -195,6 +197,11 @@
   .ex-pos{color:var(--green)} .ex-neg{color:var(--red)}
   .extrato-vazio{padding:24px 16px;text-align:center;color:var(--ink-2)}
   @media (max-width:768px){ table.extrato{font-size:11px} table.extrato thead th{font-size:9.5px} }
+
+  /* Cabeçalho de impressão (só aparece ao imprimir) */
+  .print-only{display:none}
+  #printHeader h2{margin:0 0 4px;font-family:var(--num);font-weight:700;font-size:18px;color:#000}
+  #printHeader .ph-sub{font-size:13px;color:#333;font-weight:600}
 
   .status{padding:28px 16px;text-align:center;color:var(--ink-2);font-size:14px}
   .spin{display:inline-block;width:16px;height:16px;border:2px solid var(--line);
@@ -223,6 +230,7 @@
   @media print{
     body{background:#fff}
     .topbar,.toolbar,.hdr-select,.nav-btn,.chart-card,.kpi-grid,.kpi,.bar{display:none !important}
+    .print-only{display:block !important;margin-bottom:12px}
     .panel{box-shadow:none}
     /* Cabeçalho da tabela repete no topo de cada página impressa */
     thead{display:table-header-group}
@@ -279,6 +287,12 @@
 </div>
 
 <main>
+  <!-- Cabeçalho que aparece SÓ na impressão -->
+  <div id="printHeader" class="print-only">
+    <h2>Demonstrativo de Fluxo de Caixa</h2>
+    <div class="ph-sub"><span id="printPeriodo">—</span> · <span id="printEmpresa">—</span></div>
+  </div>
+
   <section class="kpi-grid">
     <div class="kpi ent"><div class="kpi-label">Entradas</div><div class="kpi-val pos" id="kpiEnt">—</div><div class="kpi-sub" id="kpiEntQtd">—</div></div>
     <div class="kpi sai"><div class="kpi-label">Saídas</div><div class="kpi-val neg" id="kpiSai">—</div><div class="kpi-sub" id="kpiSaiQtd">—</div></div>
@@ -532,6 +546,12 @@ function render(){
     umMes ? 'Resultado diário (Em R$)' : 'Resultado mensal (Em R$)';
   renderChartResultado(R, mesSel);
 
+  // Cabeçalho de impressão: período + empresa
+  document.getElementById('printPeriodo').textContent =
+    'Período: ' + rotuloMes(mesSel==='__all__'?'':mesSel);
+  document.getElementById('printEmpresa').textContent =
+    'Empresa: ' + (empresaSel==='__all__' ? 'Todas' : empresaSel);
+
   // Denominador da análise vertical (%): total do grupo 01 (receita)
   const receita01 = (R.map.get('01') && R.map.get('01').total) || 0;
   const pctDe = v => receita01!==0 ? (v/receita01*100) : null;
@@ -774,9 +794,9 @@ function abrirExtrato(cod){
   const corpoHtml = linhas.length ? `
     <table class="extrato">
       <colgroup>
-        <col style="width:8%"><col style="width:11%"><col style="width:16%"><col style="width:13%">
-        <col style="width:7%"><col style="width:16%">
-        <col style="width:9.5%"><col style="width:9.5%"><col style="width:10%">
+        <col style="width:11%"><col style="width:11%"><col style="width:15%"><col style="width:12%">
+        <col style="width:7%"><col style="width:14%">
+        <col style="width:9.5%"><col style="width:9.5%"><col style="width:11%">
       </colgroup>
       <thead><tr>
         <th>Data</th><th>Conta Movimento</th><th>Parceiro</th><th>Fatura</th>
