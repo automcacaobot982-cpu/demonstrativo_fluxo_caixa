@@ -297,6 +297,27 @@
     tr{page-break-inside:avoid}
     tr.lvl1>td,tr.result>td{-webkit-print-color-adjust:exact;print-color-adjust:exact}
   }
+
+  /* Total geral do mês (separado do subtotal da semana) */
+  .prev-mes-total{display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;align-items:center;
+    padding:11px 16px;margin:2px 0 10px;background:var(--brand-2);color:#fff;border-radius:8px;
+    font-family:var(--num);font-size:12.5px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .prev-mes-total b{font-weight:800}
+  #prevPrintHeader{display:none}
+  #prevPrintHeader h2{margin:0 0 4px;font-family:var(--num);font-weight:700;font-size:18px;color:#000}
+  #prevPrintHeader .ph-sub{font-size:13px;color:#333;font-weight:600}
+  /* Impressão SÓ do pop-up de Previsão Semanal (relatório profissional em PDF) */
+  @media print{
+    body.print-prev > *:not(#modalPrev){display:none !important}
+    body.print-prev #modalPrev{position:static;inset:auto;display:block !important;background:#fff;padding:0}
+    body.print-prev #modalPrev .modal{box-shadow:none;max-width:none;width:100%;border-radius:0}
+    body.print-prev #modalPrev .modal-head,
+    body.print-prev #modalPrev .modal-foot{display:none !important}
+    body.print-prev #modalPrev .modal-body{max-height:none;overflow:visible;padding:0}
+    body.print-prev #prevPrintHeader{display:block;margin-bottom:12px}
+    body.print-prev .prev-tbl,body.print-prev .prev-mes-total,body.print-prev .prev-geral{page-break-inside:avoid}
+    body.print-prev .prev-mes{page-break-after:avoid}
+  }
 </style>
 </head>
 <body>
@@ -359,6 +380,7 @@
       <button class="btn-x" id="btnFecharPrev" aria-label="Fechar">✕</button></div>
     <div class="modal-body extrato-body" id="prevBody"></div>
     <div class="modal-foot">
+      <button class="btn-ghost" id="btnPrevPrint">🖨 Imprimir</button>
       <button class="btn-ghost" id="btnPrevCSV">Exportar CSV</button>
       <button class="btn-ghost" id="btnOkPrev">Fechar</button>
     </div>
@@ -1284,25 +1306,43 @@ function abrirPrevSemanal(){
 
   // Render
   const d2=d=>String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0');
+  const dFull=d=>d2(d)+'/'+d.getFullYear();
   const cel=v=> v ? money(v) : '—';
-  let html='', mesAtual=null, gP=0, gR=0;
+  // Cabeçalho do relatório (aparece só na impressão/PDF)
+  let html=`<div id="prevPrintHeader"><h2>Previsão Semanal de Fluxo de Caixa</h2>`+
+    `<div class="ph-sub">Grupo Belt Correias · ${dFull(hoje)} a ${dFull(fimHoriz)} · próximos 90 dias</div></div>`;
+
+  // Fecha o mês corrente com um "total geral" do mês
+  const totalMes=(nome,ano,mP,mR)=>{ const s=mR-mP;
+    return `<div class="prev-mes-total"><span>TOTAL GERAL ${nome} ${ano}</span>`+
+      `<span>A Pagar: <b>${money(mP)}</b></span><span>A Receber: <b>${money(mR)}</b></span>`+
+      `<span>Saldo: <b class="${s>=0?'':'sal-neg'}">${money(s)}</b></span></div>`; };
+
+  let chaveMes=null, nomeMes='', anoMes=0, gP=0, gR=0, mP=0, mR=0;
   for(const s of visiveis){
-    if(s.mes!==mesAtual){ mesAtual=s.mes; html+=`<div class="prev-mes">=== ${_MES_NOME[s.mes]} ${s.ano}</div>`; }
+    const ck=s.ano*12+s.mes;
+    if(ck!==chaveMes){
+      if(chaveMes!==null) html+=totalMes(nomeMes,anoMes,mP,mR);   // fecha o mês anterior
+      chaveMes=ck; nomeMes=_MES_NOME[s.mes]; anoMes=s.ano; mP=0; mR=0;
+      html+=`<div class="prev-mes">=== ${nomeMes} ${s.ano}</div>`;
+    }
     const o=idx.get(s.ini.getTime()); let tP=0,tR=0;
     const corpo=_EMPS.map(e=>{
       const p=o[e].p, r=o[e].r, sal=r-p; tP+=p; tR+=r;
       return `<tr class="emp"><td>${e}</td><td class="num">${cel(p)}</td><td class="num">${cel(r)}</td>`+
              `<td class="num ${sal>=0?'sal-pos':'sal-neg'}">${money(sal)}</td></tr>`;
     }).join('');
-    gP+=tP; gR+=tR; const salT=tR-tP;
+    gP+=tP; gR+=tR; mP+=tP; mR+=tR; const salT=tR-tP;
     html+=`<table class="prev-tbl"><thead class="sem"><tr>`+
       `<th>SEMANA ${s.n} · ${d2(s.ini)} a ${d2(s.fim)}</th>`+
       `<th class="num">A PAGAR</th><th class="num">A RECEBER</th><th class="num">SALDO</th></tr></thead>`+
-      `<tbody>${corpo}<tr class="tot"><td>TOTAL</td><td class="num">${cel(tP)}</td><td class="num">${cel(tR)}</td>`+
+      `<tbody>${corpo}<tr class="tot"><td>SUBTOTAL</td><td class="num">${cel(tP)}</td><td class="num">${cel(tR)}</td>`+
       `<td class="num ${salT>=0?'sal-pos':'sal-neg'}">${money(salT)}</td></tr></tbody></table>`;
   }
+  if(chaveMes!==null) html+=totalMes(nomeMes,anoMes,mP,mR);        // fecha o último mês
+
   const gSal=gR-gP;
-  html+=`<div class="prev-geral"><span><b>TOTAL GERAL</b></span>`+
+  html+=`<div class="prev-geral"><span><b>TOTAL GERAL · 90 DIAS</b></span>`+
     `<span>A Pagar: <b>${money(gP)}</b></span><span>A Receber: <b>${money(gR)}</b></span>`+
     `<span>Saldo: <b class="${gSal>=0?'':'sal-neg'}">${money(gSal)}</b></span></div>`;
   html+=`<div class="prev-nota">Semana inicia no sábado. <b>A pagar</b>: fim de semana efetiva na segunda; `+
@@ -1321,20 +1361,33 @@ function exportarPrevCSV(){
   const d2=d=>String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0');
   const num=v=> v ? v.toFixed(2).replace('.',',') : '';
   const linhas=[['Semana','Periodo','Empresa','A Pagar','A Receber','Saldo']];
-  let gP=0,gR=0;
+  let chaveMes=null, nomeMes='', anoMes=0, gP=0, gR=0, mP=0, mR=0;
+  const fechaMes=()=>{ if(chaveMes!==null) linhas.push(['', 'TOTAL GERAL '+nomeMes+' '+anoMes, '', num(mP), num(mR), num(mR-mP)]); };
   for(const s of visiveis){
+    const ck=s.ano*12+s.mes;
+    if(ck!==chaveMes){ fechaMes(); chaveMes=ck; nomeMes=_MES_NOME[s.mes]; anoMes=s.ano; mP=0; mR=0; }
     const o=idx.get(s.ini.getTime()); let tP=0,tR=0;
     for(const e of _EMPS){ const p=o[e].p, r=o[e].r; tP+=p; tR+=r;
       linhas.push(['S'+s.n, d2(s.ini)+' a '+d2(s.fim), e, num(p), num(r), num(r-p)]); }
-    linhas.push(['S'+s.n, d2(s.ini)+' a '+d2(s.fim), 'TOTAL', num(tP), num(tR), num(tR-tP)]);
-    gP+=tP; gR+=tR;
+    linhas.push(['S'+s.n, d2(s.ini)+' a '+d2(s.fim), 'SUBTOTAL', num(tP), num(tR), num(tR-tP)]);
+    gP+=tP; gR+=tR; mP+=tP; mR+=tR;
   }
-  linhas.push(['','','TOTAL GERAL', num(gP), num(gR), num(gR-gP)]);
+  fechaMes();
+  linhas.push(['','TOTAL GERAL · 90 DIAS','', num(gP), num(gR), num(gR-gP)]);
   const csv=linhas.map(r=>r.map(c=>{c=String(c);return /[",;\n]/.test(c)?'"'+c.replace(/"/g,'""')+'"':c;}).join(';')).join('\n');
   const blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'});
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='previsao_semanal.csv'; a.click();
 }
+// Imprime SÓ o pop-up como relatório/PDF (adiciona classe temporária no body)
+function imprimirPrev(){
+  document.body.classList.add('print-prev');
+  const limpar=()=>{ document.body.classList.remove('print-prev'); window.removeEventListener('afterprint',limpar); };
+  window.addEventListener('afterprint', limpar);
+  window.print();
+  setTimeout(limpar, 1200);
+}
 document.getElementById('btnPrevSemanal').addEventListener('click', abrirPrevSemanal);
+document.getElementById('btnPrevPrint').addEventListener('click', imprimirPrev);
 document.getElementById('btnFecharPrev').addEventListener('click', fecharPrev);
 document.getElementById('btnOkPrev').addEventListener('click', fecharPrev);
 document.getElementById('btnPrevCSV').addEventListener('click', exportarPrevCSV);
