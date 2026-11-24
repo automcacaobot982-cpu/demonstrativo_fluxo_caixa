@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>DFC · Belt Correias</title>
-<meta name="theme-color" content="#0c353b">
+<meta name="theme-color" content="#424580">
 <meta name="description" content="Demonstrativo de Fluxo de Caixa Realizado — Belt Correias.">
 <link rel="manifest" href="manifest.json">
 <link rel="icon" type="image/png" sizes="48x48" href="favicon.png">
@@ -20,18 +20,19 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
   :root{
-    --bg:#eceff1;
+    --bg:#f0f5fa;
     --surface:#ffffff;
-    --surface-2:#f6f8f9;
-    --ink:#16191c;
-    --ink-2:#586066;
-    --ink-3:#8a939a;
-    --line:#dde3e6;
-    --line-2:#c9d2d6;
-    --bar:#0c353b;
-    --brand:#0d5b63;
-    --brand-2:#0a474d;
-    --brand-tint:#e2efef;
+    --surface-2:#f6f9fc;
+    --ink:#1e293b;
+    --ink-2:#475569;
+    --ink-3:#8a95a5;
+    --line:#dde5ee;
+    --line-2:#c6d2e0;
+    --bar:#424580;          /* barra superior (índigo da marca Belt) */
+    --brand:#046bd2;        /* azul primário (links/botões) */
+    --brand-2:#045cb4;      /* azul mais escuro (hover) */
+    --brand-tint:#e7f1fc;   /* azul bem claro (linha de resultado/realce) */
+    --accent:#00adee;       /* ciano de destaque */
     --amber:#b57f00;
     --amber-bg:#fef08a;
     --amber-text:#854d0e;
@@ -54,27 +55,27 @@
   input,select{font-family:inherit}
 
   /* TOPBAR */
-  .topbar{position:sticky;top:0;z-index:40;background:var(--bar);color:#eaf6f5;
+  .topbar{position:sticky;top:0;z-index:40;background:var(--bar);color:#eef2ff;
     display:flex;align-items:center;gap:14px;padding:0 20px;height:60px;}
   .brand-lockup{display:flex;align-items:center;gap:12px}
   .brand-lockup .mark{width:38px;height:38px;flex:0 0 auto}
   .tb-title{font-family:var(--num);font-weight:600;font-size:15px;line-height:1.15}
-  .tb-title small{display:block;font-family:var(--sans);font-weight:400;font-size:11px;color:#9ccbc7}
+  .tb-title small{display:block;font-family:var(--sans);font-weight:400;font-size:11px;color:#b9c0e8}
   .spacer{flex:1}
   .badge{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);
-    color:#eaf6f5;font-weight:600;font-size:13px;padding:7px 13px;border-radius:999px;white-space:nowrap;
+    color:#eef2ff;font-weight:600;font-size:13px;padding:7px 13px;border-radius:999px;white-space:nowrap;
     font-family:var(--num);}
   .nav-btn{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;
     padding:8px 14px;border-radius:var(--r-sm);font-size:13px;font-weight:600;transition:.15s;}
   .nav-btn:hover{background:rgba(255,255,255,.22)}
   /* Botão "Baixar app" (instalar PWA): destaque sutil em teal */
-  .btn-install{background:rgba(127,212,208,.14);border-color:rgba(127,212,208,.45);color:#d6f5f1}
-  .btn-install:hover{background:rgba(127,212,208,.24)}
+  .btn-install{background:rgba(0,173,238,.16);border-color:rgba(0,173,238,.5);color:#cdefff}
+  .btn-install:hover{background:rgba(0,173,238,.28)}
   /* Seletor de período dentro do cabeçalho escuro */
   .hdr-select{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;
     padding:8px 30px 8px 12px;border-radius:var(--r-sm);font-size:13px;font-weight:600;cursor:pointer;
     appearance:none;font-family:var(--num);
-    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%23d6f5f1' stroke-width='2'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E");
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%23cfe3ff' stroke-width='2'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E");
     background-repeat:no-repeat;background-position:right 10px center;}
   .hdr-select:hover{background-color:rgba(255,255,255,.18)}
   .hdr-select option{color:#16191c}
@@ -132,7 +133,7 @@
   td.v{text-align:right;font-family:var(--num);font-variant-numeric:tabular-nums;white-space:nowrap;font-weight:600}
   td.p{text-align:right;font-family:var(--num);font-variant-numeric:tabular-nums;white-space:nowrap;
     font-weight:600;color:var(--ink-2);width:78px}
-  tr.lvl1 td.p{color:rgba(234,246,245,.9)}
+  tr.lvl1 td.p{color:rgba(255,255,255,.9)}
   .conta{display:flex;align-items:center;gap:9px}
   .cod{color:var(--ink-3);font-family:var(--num);font-variant-numeric:tabular-nums;font-size:12.5px;min-width:96px;flex:0 0 auto}
   .nome{flex:1}
@@ -140,11 +141,11 @@
     color:var(--ink-3);cursor:pointer;border-radius:4px;transition:.15s;font-size:10px}
   .caret.spacer{visibility:hidden}
   .caret:hover{background:var(--brand-tint);color:var(--brand)}
-  tr.lvl1>td{background:var(--brand);color:#eaf6f5}
-  tr.lvl1 .cod{color:rgba(234,246,245,.72)} tr.lvl1 .caret{color:rgba(234,246,245,.9)}
+  tr.lvl1>td{background:var(--brand);color:#ffffff}
+  tr.lvl1 .cod{color:rgba(255,255,255,.75)} tr.lvl1 .caret{color:rgba(255,255,255,.9)}
   tr.lvl1 .nome{font-weight:700;text-transform:uppercase;letter-spacing:.3px;font-size:13px}
   tr.lvl1 .caret:hover{background:rgba(255,255,255,.2);color:#fff}
-  tr.lvl1 td.v{color:#eaf6f5}
+  tr.lvl1 td.v{color:#ffffff}
   tr.lvl2 .nome{font-weight:600}
   tr.lvl3 .nome,tr.lvl4 .nome{color:var(--ink-2)}
   tr.result>td{background:var(--brand-tint)}
@@ -198,6 +199,24 @@
   .extrato-vazio{padding:24px 16px;text-align:center;color:var(--ink-2)}
   @media (max-width:768px){ table.extrato{font-size:11px} table.extrato thead th{font-size:9.5px} }
 
+  /* TELA DE SENHA */
+  .login-overlay{position:fixed;inset:0;z-index:100;padding:20px;
+    display:flex;align-items:center;justify-content:center;
+    background:radial-gradient(120% 120% at 20% 0%, #4a4d8c 0%, #343770 55%, #23264f 100%);}
+  .login-overlay.hidden{display:none}
+  .login-card{background:var(--surface);width:100%;max-width:360px;border-radius:14px;
+    padding:30px 26px 26px;box-shadow:var(--shadow-md);text-align:center}
+  .login-mark{width:52px;height:52px;margin:0 auto 14px;display:block}
+  .login-card h2{margin:0;font-family:var(--num);font-weight:700;font-size:19px;line-height:1.2}
+  .login-sub{margin:6px 0 20px;font-size:13px;color:var(--ink-2)}
+  #loginSenha{width:100%;padding:12px 13px;border:1px solid var(--line-2);border-radius:var(--r-sm);
+    background:var(--surface-2);font-size:15px;color:var(--ink)}
+  #loginSenha:focus{outline:none;border-color:var(--brand)}
+  .login-erro{color:var(--red);font-size:13px;min-height:18px;margin-top:8px;font-weight:600}
+  .login-btn{width:100%;margin-top:6px;background:var(--brand);color:#fff;border:none;
+    border-radius:var(--r-sm);padding:12px;font-weight:600;font-size:15px;transition:.15s}
+  .login-btn:hover{background:var(--brand-2)}
+
   /* Cabeçalho de impressão (só aparece ao imprimir) */
   .print-only{display:none}
   #printHeader h2{margin:0 0 4px;font-family:var(--num);font-weight:700;font-size:18px;color:#000}
@@ -245,8 +264,8 @@
 <header class="topbar">
   <div class="brand-lockup">
     <svg class="mark" viewBox="0 0 64 64" fill="none" aria-hidden="true">
-      <rect width="64" height="64" rx="13" fill="#0a3a40"/>
-      <g stroke="#7fd4d0" stroke-width="3"><circle cx="24" cy="32" r="12"/><circle cx="44" cy="32" r="8"/></g>
+      <rect width="64" height="64" rx="13" fill="#343770"/>
+      <g stroke="#00adee" stroke-width="3"><circle cx="24" cy="32" r="12"/><circle cx="44" cy="32" r="8"/></g>
     </svg>
     <div class="tb-title">Demonstrativo de Fluxo de Caixa<small>Belt Correias · Realizado</small></div>
   </div>
@@ -261,7 +280,23 @@
   <button class="nav-btn btn-install" id="btnBaixar">⬇ Baixar app</button>
   <button class="nav-btn" id="btnPrint">🖨 Imprimir</button>
   <button class="nav-btn" id="btnRefresh">↻ Atualizar</button>
+  <button class="nav-btn" id="btnSair" title="Sair / trocar senha">⎋ Sair</button>
 </header>
+
+<!-- TELA DE SENHA (acesso restrito) -->
+<div id="loginOverlay" class="login-overlay hidden">
+  <form id="loginForm" class="login-card">
+    <svg class="login-mark" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+      <rect width="64" height="64" rx="13" fill="#343770"/>
+      <g stroke="#00adee" stroke-width="3"><circle cx="24" cy="32" r="12"/><circle cx="44" cy="32" r="8"/></g>
+    </svg>
+    <h2>Demonstrativo de Fluxo de Caixa</h2>
+    <p class="login-sub">Belt Correias · acesso restrito</p>
+    <input type="password" id="loginSenha" placeholder="Senha de acesso" autocomplete="current-password" required>
+    <div id="loginErro" class="login-erro"></div>
+    <button type="submit" class="login-btn">Entrar</button>
+  </form>
+</div>
 
 <!-- MODAL: extrato de lançamentos do centro de custo -->
 <div id="modalExtrato" class="modal-overlay hidden">
@@ -332,15 +367,17 @@
    primeira que realmente traz os lançamentos. Assim funciona tanto se a
    planilha estiver "publicada na web" quanto apenas compartilhada por link.
    ========================================================================== */
-const SHEET_ID = "1NKQsXxdLRsa9TKh-uHjW7T78xrl7lTksMDi_uurlJdY";          // ID da planilha
-const PUB_ID   = "2PACX-1vQ1kWVNlFi8fPEyrbH84nltbC2qfVC3sZWcHf0Zl40HtFx_WSkEXfzNKsN-bNGfXoLu1SZFAP836Adh"; // publicar na web
-const GID      = "0";
+/* Os dados agora vêm por um Apps Script (porteiro com senha), para que a
+   planilha possa ser PRIVADA. Cole aqui a URL do Web App (termina em /exec),
+   obtida ao implantar o porteiro_dfc.gs. A SENHA não fica aqui: é digitada
+   pelo usuário e conferida no servidor do Google. */
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwhjhHny8JPjiCjiWGyc9IAEI097OmdylQMHCllUo3v6Q7oQ-_aUY_RmO97a_KViAK2/exec";
 
-const FONTES = [
-  { nome:"Publicado (CSV)", url:`https://docs.google.com/spreadsheets/d/e/${PUB_ID}/pub?gid=${GID}&single=true&output=csv` },
-  { nome:"Export (ID)",     url:`https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${GID}` },
-  { nome:"GViz (ID)",       url:`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${GID}` },
-];
+const CHAVE_SENHA = "dfc_belt_senha";   // onde a senha fica lembrada NESTE aparelho
+function obterSenha(){ try{ return localStorage.getItem(CHAVE_SENHA) || ""; }catch(_){ return ""; } }
+function guardarSenha(s){ try{ localStorage.setItem(CHAVE_SENHA, s); }catch(_){ } }
+function esquecerSenha(){ try{ localStorage.removeItem(CHAVE_SENHA); }catch(_){ } }
+
 const COL = { data:0, conta:1, recN:[4,5,6,7], pagN:[11,12,13,14], valor:18 };
 /* Colunas usadas no EXTRATO (pop-up do olho): A,B,D, I/P, J/Q, K/R, S */
 const COLX = { data:0, conta:1, parceiro:3, faturaR:8, faturaP:15, subR:9, subP:16, obsR:10, obsP:17, valor:18 };
@@ -580,8 +617,8 @@ function render(){
       const temFilhos=node.children.length>0, colapsado=colapsados.has(node.cod);
       const indent=(node.nivel-1)*18;
       const barra = node.nivel===1
-        ? `<div class="bar"><span style="width:${(Math.abs(node.total)/maxAbs*100).toFixed(1)}%;background:#eaf6f5"></span></div>` : '';
-      const corVal = node.nivel===1 ? '#eaf6f5'
+        ? `<div class="bar"><span style="width:${(Math.abs(node.total)/maxAbs*100).toFixed(1)}%;background:#ffffff"></span></div>` : '';
+      const corVal = node.nivel===1 ? '#ffffff'
         : (Math.abs(node.total)<0.005?'var(--ink-3)':(node.total>=0?'var(--green)':'var(--red)'));
       const pc = pctDe(node.total);
       tr.innerHTML=`
@@ -641,60 +678,49 @@ function avaliar(rows){
            header:(rows[0]||[]).slice(0,4).map(s=>String(s).slice(0,22)).join(' | ') };
 }
 
-async function tentarFonte(f){
-  const sep = f.url.includes('?') ? '&' : '?';
-  const resp = await fetch(f.url + sep + '_=' + Date.now());
-  const txt = await resp.text();
-  if(!resp.ok) return { f, ok:false, motivo:'HTTP '+resp.status };
-  if(/^\s*</.test(txt)) return { f, ok:false, motivo:'veio HTML (não publicada / sem acesso)' };
-  const rows = parseCSV(txt).filter(r=>r.some(c=>(c||'').trim()!==''));
-  const d = avaliar(rows);
-  if(rows.length<=1) return { f, ok:false, motivo:'sem dados', d };
-  if(d.classificaveis===0) return { f, ok:false, motivo:`0 contas reconhecidas (${d.colunas} col.)`, d };
-  return { f, ok:true, rows, d };
-}
-
 async function carregar(){
+  const senha = obterSenha();
+  if(!senha){ mostrarLogin(); return; }
+
   const corpo=document.getElementById('corpo');
   corpo.innerHTML=`<tr><td colspan="4"><div class="status"><span class="spin"></span>Carregando dados da planilha…</div></td></tr>`;
 
-  const diag=[];
-  let vencedor=null;
-  for(const f of FONTES){
-    try{
-      const r=await tentarFonte(f);
-      diag.push(`${f.nome}: ${r.ok?('OK — '+r.d.classificaveis+' lançamentos'):('falhou — '+r.motivo)}`);
-      if(r.ok){ vencedor=r; break; }
-    }catch(e){
-      diag.push(`${f.nome}: erro de rede/CORS (${e.message})`);
+  try{
+    const sep = APPS_SCRIPT_URL.includes('?') ? '&' : '?';
+    const resp = await fetch(APPS_SCRIPT_URL + sep + 'token=' + encodeURIComponent(senha) + '&_=' + Date.now());
+    const txt = await resp.text();
+
+    if(txt.trim()==='__SENHA_INCORRETA__'){
+      esquecerSenha();
+      mostrarLogin('Senha incorreta. Tente novamente.');
+      return;
     }
-  }
+    if(!resp.ok) throw new Error('HTTP '+resp.status);
 
-  if(!vencedor){
+    const rows = parseCSV(txt).filter(r=>r.some(c=>(c||'').trim()!==''));
+    if(rows.length<=1) throw new Error('a planilha não retornou lançamentos');
+
+    LINHAS=rows.slice(1);
+    const set=new Set();
+    for(const r of LINHAS){ const ym=toMonth(r[COL.data]); if(ym) set.add(ym); }
+    MESES=[...set].sort();
+    const sel=document.getElementById('selMes'); sel.innerHTML='';
+    MESES.forEach(ym=>{ const o=document.createElement('option'); o.value=ym; o.textContent=rotuloMes(ym); sel.appendChild(o); });
+    const oAll=document.createElement('option'); oAll.value='__all__'; oAll.textContent='Todos os períodos'; sel.appendChild(oAll);
+    sel.value = MESES.length ? MESES[MESES.length-1] : '__all__';
+
+    document.getElementById('rodape').innerHTML=
+      `${LINHAS.length} lançamentos · última leitura ${new Date().toLocaleString('pt-BR')}`;
+    esconderLogin();
+    render();
+  }catch(e){
     corpo.innerHTML=`<tr><td colspan="4"><div class="status" style="color:var(--red);text-align:left">
-      <b>Não consegui ler os lançamentos da planilha.</b><br><br>
-      ${diag.map(d=>'• '+d).join('<br>')}<br><br>
-      <span style="color:var(--ink-2)">Para o painel enxergar a planilha, faça <b>uma</b> destas opções no Google Sheets:</span><br>
-      <span style="color:var(--ink-2)">1) <b>Compartilhar → Acesso geral → Qualquer pessoa com o link: Leitor</b>; ou</span><br>
-      <span style="color:var(--ink-2)">2) <b>Arquivo → Compartilhar → Publicar na web → a aba do DFC (valores) → CSV</b>.</span>
+      <b>Não consegui carregar os dados.</b><br><br>
+      Detalhe: ${e.message}<br><br>
+      <span style="color:var(--ink-2)">Verifique se a URL do Apps Script está correta no arquivo
+      e se o porteiro foi implantado como <b>App da Web</b> com acesso <b>Qualquer pessoa</b>.</span>
       </div></td></tr>`;
-    document.getElementById('rodape').innerHTML='Diagnóstico de fontes: '+diag.join(' · ');
-    return;
   }
-
-  LINHAS=vencedor.rows.slice(1);
-  const set=new Set();
-  for(const r of LINHAS){ const ym=toMonth(r[COL.data]); if(ym) set.add(ym); }
-  MESES=[...set].sort();
-  const sel=document.getElementById('selMes'); sel.innerHTML='';
-  MESES.forEach(ym=>{ const o=document.createElement('option'); o.value=ym; o.textContent=rotuloMes(ym); sel.appendChild(o); });
-  const oAll=document.createElement('option'); oAll.value='__all__'; oAll.textContent='Todos os períodos'; sel.appendChild(oAll);
-  sel.value = MESES.length ? MESES[MESES.length-1] : '__all__';
-
-  document.getElementById('rodape').innerHTML=
-    `Fonte: <b>${vencedor.f.nome}</b> · ${LINHAS.length} lançamentos · `+
-    `última leitura ${new Date().toLocaleString('pt-BR')}`;
-  render();
 }
 
 /* ---------------------- exportar / imprimir / eventos -------------------- */
@@ -715,6 +741,28 @@ function exportarCSV(){
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
   a.download=`dfc_${document.getElementById('selMes').value==='__all__'?'todos':document.getElementById('selMes').value}.csv`; a.click();
 }
+
+/* ----------------------------- login / senha ---------------------------- */
+function mostrarLogin(msg){
+  const ov=document.getElementById('loginOverlay');
+  ov.classList.remove('hidden');
+  document.getElementById('loginErro').textContent = msg || '';
+  const inp=document.getElementById('loginSenha'); inp.value='';
+  setTimeout(()=>inp.focus(), 60);
+}
+function esconderLogin(){ document.getElementById('loginOverlay').classList.add('hidden'); }
+
+document.getElementById('loginForm').addEventListener('submit', e=>{
+  e.preventDefault();
+  const s=document.getElementById('loginSenha').value.trim();
+  if(!s) return;
+  guardarSenha(s);
+  carregar();
+});
+document.getElementById('btnSair').addEventListener('click', ()=>{
+  esquecerSenha();
+  mostrarLogin('Você saiu. Informe a senha para entrar.');
+});
 
 document.getElementById('btnRefresh').addEventListener('click',carregar);
 document.getElementById('selMes').addEventListener('change',render);

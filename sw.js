@@ -5,7 +5,7 @@
    - NUNCA guarda os dados da planilha do Google Sheets: esses sempre vão
      direto à internet, para os valores nunca ficarem desatualizados.
    ========================================================================== */
-const CACHE = 'dfc-belt-v2';
+const CACHE = 'dfc-belt-v3';
 
 // Arquivos locais da casca do app (caminhos relativos ao escopo).
 const SHELL = [
