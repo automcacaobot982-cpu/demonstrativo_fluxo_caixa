@@ -105,8 +105,20 @@
 
   .chart-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);
     padding:20px;box-shadow:var(--shadow-sm);margin-bottom:22px}
-  .chart-card h3{margin:0 0 14px;font-size:15px;font-weight:600;font-family:var(--num)}
+  .chart-card h3{margin:0;font-size:15px;font-weight:600;font-family:var(--num)}
+  .chart-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px}
   .chart-wrap{position:relative;height:300px}
+  /* Legenda customizada (quadrado "Realizado" dividido na diagonal verde/vermelho) */
+  .legenda{display:flex;align-items:center;gap:16px}
+  .lg-item{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;color:var(--ink-2)}
+  .lg-swatch{width:14px;height:14px;border-radius:3px;display:inline-block;border:1px solid rgba(0,0,0,.08)}
+  .lg-realizado{background:linear-gradient(135deg,#1a9455 0 50%,#cf3a2c 50% 100%)}
+  .lg-previsto{background:#eab308}
+  /* Chip "limpar filtro do dia" quando uma barra está selecionada */
+  .limpar-barra{display:inline-flex;align-items:center;gap:6px;cursor:pointer;
+    font-size:12px;color:var(--brand-2);background:var(--brand-tint);
+    border:1px solid var(--line);border-radius:999px;padding:3px 11px;margin-left:10px}
+  .limpar-barra:hover{background:var(--brand);color:#fff;border-color:var(--brand)}
 
   /* TOOLBAR */
   .toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
@@ -345,7 +357,13 @@
   </section>
 
   <div class="chart-card">
-    <h3 id="tituloGrafico">Resultado diário (Em R$)</h3>
+    <div class="chart-head">
+      <h3><span id="tituloGrafico">Resultado diário (Em R$)</span><span id="limparBarra" class="limpar-barra" style="display:none">✕ limpar filtro do dia</span></h3>
+      <div class="legenda" id="legendaGrafico">
+        <span class="lg-item"><span class="lg-swatch lg-realizado"></span>Realizado</span>
+        <span class="lg-item" id="lgPrevisto"><span class="lg-swatch lg-previsto"></span>Previsto</span>
+      </div>
+    </div>
     <div class="chart-wrap"><canvas id="chartDiario"></canvas></div>
   </div>
 
@@ -542,8 +560,9 @@ function somarTotais(node){
 
 /* --------------------------- estado + cálculo ---------------------------- */
 let LINHAS=[], LINHAS_PREV=[], MESES=[], colapsados=new Set(), chartDiario=null;
+let barraSelecionada=null;   // chave do dia (AAAA-MM-DD) ou mês (AAAA-MM) clicado no gráfico
 
-function processar(mesSel, empresaSel, ocultarPrev){
+function processar(mesSel, empresaSel, ocultarPrev, diaSel){
   const {map,raizes}=montarArvore();
   let ent=0,sai=0,qEnt=0,qSai=0,qMov=0,naoClass=0;
   const porDiaMap={};  // 'AAAA-MM-DD' -> resultado líquido do dia (entradas - saídas)
@@ -553,6 +572,8 @@ function processar(mesSel, empresaSel, ocultarPrev){
     if(mesSel && mesSel!=='__all__' && ym!==mesSel) continue;
     // Filtro por empresa (pela Conta Movimento, coluna B)
     if(empresaSel && empresaSel!=='__all__' && empresaDaConta(cells[COL.conta])!==empresaSel) continue;
+    // Filtro por barra do gráfico (dia AAAA-MM-DD ou mês AAAA-MM)
+    if(diaSel){ const k = diaSel.length===10 ? toISO(cells[COL.data]) : ym; if(k!==diaSel) continue; }
     const valor=parseNum(cells[COL.valor]);
     const rec=textoProfundo(cells,COL.recN), pag=textoProfundo(cells,COL.pagN);
     let cod='';
@@ -576,6 +597,8 @@ function processar(mesSel, empresaSel, ocultarPrev){
       const ym=toMonth(cells[COLP.dataVenc]);
       if(mesSel && mesSel!=='__all__' && ym!==mesSel) continue;
       if(empresaSel && empresaSel!=='__all__' && empresaDaConta(cells[COLP.conta])!==empresaSel) continue;
+      // Filtro por barra: previsões posicionadas pelo vencimento ajustado ao dia útil
+      if(diaSel){ const k = diaSel.length===10 ? ajustarDiaUtil(toISO(cells[COLP.dataVenc])) : ym; if(k!==diaSel) continue; }
       const valor=parseNum(cells[COLP.valor]);
       const cod=codigoDe(textoProfundo(cells,COLP.ccN));
       if(!cod) continue;
@@ -613,7 +636,8 @@ function processar(mesSel, empresaSel, ocultarPrev){
 
 /* -------- gráfico de colunas: resultado diário (mês único) ou mensal ------ */
 const MESES_ABREV=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
-function renderChartResultado(R, mesSel, ocultarPrev){
+function comAlfa(hex,a){ const n=parseInt(hex.slice(1),16); return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`; }
+function renderChartResultado(R, mesSel, ocultarPrev, diaSel){
   if(typeof Chart==='undefined') return;
   const umMes = mesSel && mesSel!=='__all__';
 
@@ -631,14 +655,17 @@ function renderChartResultado(R, mesSel, ocultarPrev){
   const labels = chaves.map(k=> umMes ? String(+k.split('-')[2]) : (k.split('-')[1]+'/'+k.split('-')[0]));
   const dadosR = chaves.map(k=>+( (mapR[k]||0) ).toFixed(2));
   const dadosP = chaves.map(k=>+( (mapP[k]||0) ).toFixed(2));
-  const coresR = dadosR.map(v=>v>=0?'#1a9455':'#cf3a2c');
+  // Quando há uma barra selecionada, as demais ficam transparentes (destaque na escolhida)
+  const ativo = k => !diaSel || k===diaSel;
+  const coresR = chaves.map((k,i)=> comAlfa(dadosR[i]>=0?'#1a9455':'#cf3a2c', ativo(k)?1:0.16));
+  const coresP = chaves.map(k=> comAlfa('#eab308', ativo(k)?1:0.16));
 
   const tituloTip = umMes
     ? items=>'Dia '+items[0].label
     : items=>{ const [m,a]=items[0].label.split('/'); return `${MESES_ABREV[(+m)-1]||m}/${a}`; };
 
   const datasets=[{label:'Realizado',data:dadosR,backgroundColor:coresR,borderRadius:4,maxBarThickness:46}];
-  if(!ocultarPrev) datasets.push({label:'Previsto',data:dadosP,backgroundColor:'#eab308',borderRadius:4,maxBarThickness:46});
+  if(!ocultarPrev) datasets.push({label:'Previsto',data:dadosP,backgroundColor:coresP,borderRadius:4,maxBarThickness:46});
 
   const ctx=document.getElementById('chartDiario').getContext('2d');
   if(chartDiario) chartDiario.destroy();
@@ -647,7 +674,9 @@ function renderChartResultado(R, mesSel, ocultarPrev){
     data:{labels,datasets},
     options:{
       responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:!ocultarPrev,position:'top',align:'end',labels:{boxWidth:12,font:{size:12}}},
+      onClick:(evt,els)=>{ if(els && els.length) selecionarBarra(chaves[els[0].index]); },
+      onHover:(evt,els)=>{ evt.native.target.style.cursor = (els&&els.length)?'pointer':'default'; },
+      plugins:{legend:{display:false},   // legenda é desenhada em HTML (quadrado diagonal)
         tooltip:{callbacks:{ title:tituloTip, label:c=>c.dataset.label+': R$ '+money(c.raw) }}},
       scales:{
         x:{grid:{display:false},ticks:{font:{size:11},autoSkip:true,maxRotation:0}},
@@ -657,6 +686,13 @@ function renderChartResultado(R, mesSel, ocultarPrev){
   });
 }
 
+// Clicar numa barra filtra a tabela por aquele dia/mês; clicar de novo limpa.
+function selecionarBarra(chave){
+  barraSelecionada = (barraSelecionada===chave) ? null : chave;
+  render();
+}
+function limparBarra(){ barraSelecionada=null; render(); }
+
 /* ---------------------------- renderização ------------------------------- */
 function render(){
   const mesSel=document.getElementById('selMes').value;
@@ -664,7 +700,16 @@ function render(){
   const hideZeros=document.getElementById('chkZeros').checked;
   const ocultarPrev=document.getElementById('chkPrev').checked;
   const termo=document.getElementById('busca').value.trim().toLowerCase();
-  const R=processar(mesSel, empresaSel, ocultarPrev);
+  const umMes = mesSel && mesSel!=='__all__';
+
+  // Barra selecionada só vale para o tipo de eixo atual (dia AAAA-MM-DD × mês AAAA-MM)
+  if(barraSelecionada && ((umMes && barraSelecionada.length!==10) || (!umMes && barraSelecionada.length!==7)))
+    barraSelecionada=null;
+  const diaSel=barraSelecionada;
+
+  // Tabela/KPIs usam o recorte do dia selecionado; o gráfico mostra o período inteiro
+  const R=processar(mesSel, empresaSel, ocultarPrev, diaSel);
+  const Rchart = diaSel ? processar(mesSel, empresaSel, ocultarPrev, null) : R;
 
   document.getElementById('kpiEnt').textContent='R$ '+money(R.ent);
   document.getElementById('kpiSai').textContent='R$ '+money(R.sai);
@@ -688,10 +733,24 @@ function render(){
     document.getElementById('kpiPEsub').textContent = R.receita>0 ? 'Margem de contribuição negativa' : 'Sem receita no período';
   }
 
-  const umMes = mesSel && mesSel!=='__all__';
   document.getElementById('tituloGrafico').textContent =
     umMes ? 'Resultado diário (Em R$)' : 'Resultado mensal (Em R$)';
-  renderChartResultado(R, mesSel, ocultarPrev);
+  renderChartResultado(Rchart, mesSel, ocultarPrev, diaSel);
+
+  // Legenda "Previsto" só quando as previsões estão visíveis
+  document.getElementById('lgPrevisto').style.display = ocultarPrev ? 'none' : '';
+
+  // Chip "limpar filtro do dia" quando há uma barra selecionada
+  const chip=document.getElementById('limparBarra');
+  if(diaSel){
+    const rot = diaSel.length===10
+      ? diaSel.split('-').reverse().join('/')                       // DD/MM/AAAA
+      : (diaSel.split('-')[1]+'/'+diaSel.split('-')[0]);            // MM/AAAA
+    chip.textContent='✕ limpar filtro · '+rot;
+    chip.style.display='';
+  }else{
+    chip.style.display='none';
+  }
 
   // Cabeçalho de impressão: período + empresa
   document.getElementById('printPeriodo').textContent =
@@ -915,10 +974,11 @@ document.getElementById('btnSair').addEventListener('click', ()=>{
 });
 
 document.getElementById('btnRefresh').addEventListener('click',carregar);
-document.getElementById('selMes').addEventListener('change',render);
-document.getElementById('selEmpresa').addEventListener('change',render);
+document.getElementById('selMes').addEventListener('change',()=>{ barraSelecionada=null; render(); });
+document.getElementById('selEmpresa').addEventListener('change',()=>{ barraSelecionada=null; render(); });
 document.getElementById('chkZeros').addEventListener('change',render);
 document.getElementById('chkPrev').addEventListener('change',render);
+document.getElementById('limparBarra').addEventListener('click',limparBarra);
 document.getElementById('busca').addEventListener('input',render);
 document.getElementById('btnCSV').addEventListener('click',exportarCSV);
 document.getElementById('btnPrint').addEventListener('click',()=>window.print());
@@ -952,11 +1012,13 @@ function abrirExtrato(cod){
 
   // Filtra os lançamentos do centro de custo (a conta clicada e suas filhas),
   // respeitando os filtros atuais de mês e empresa.
+  const diaSel=barraSelecionada;
   const movs=[];
   for(const cells of LINHAS){
     const ym=toMonth(cells[COL.data]);
     if(mesSel && mesSel!=='__all__' && ym!==mesSel) continue;
     if(empresaSel && empresaSel!=='__all__' && empresaDaConta(cells[COL.conta])!==empresaSel) continue;
+    if(diaSel){ const k = diaSel.length===10 ? toISO(cells[COL.data]) : ym; if(k!==diaSel) continue; }
     const cm=codMovimento(cells);
     if(!cm) continue;
     if(!(cm===cod || cm.startsWith(cod+'.'))) continue;
@@ -995,6 +1057,7 @@ function abrirExtrato(cod){
       const ym=toMonth(cells[COLP.dataVenc]);
       if(mesSel && mesSel!=='__all__' && ym!==mesSel) continue;
       if(empresaSel && empresaSel!=='__all__' && empresaDaConta(cells[COLP.conta])!==empresaSel) continue;
+      if(diaSel){ const k = diaSel.length===10 ? ajustarDiaUtil(toISO(cells[COLP.dataVenc])) : ym; if(k!==diaSel) continue; }
       const cm=codigoDe(textoProfundo(cells,COLP.ccN));
       if(!cm) continue;
       if(!(cm===cod || cm.startsWith(cod+'.'))) continue;
