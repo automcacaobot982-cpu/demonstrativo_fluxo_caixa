@@ -134,6 +134,9 @@
   td.p{text-align:right;font-family:var(--num);font-variant-numeric:tabular-nums;white-space:nowrap;
     font-weight:600;color:var(--ink-2);width:78px}
   tr.lvl1 td.p{color:rgba(255,255,255,.9)}
+  /* Colunas de PREVISÃO: separador discreto e ocultáveis pelo checkbox */
+  #tabela tbody td:nth-child(5),#tabela thead th:nth-child(5){border-left:1px solid var(--line)}
+  #tabela.ocultar-prev .col-prev{display:none}
   .conta{display:flex;align-items:center;gap:9px}
   .cod{color:var(--ink-3);font-family:var(--num);font-variant-numeric:tabular-nums;font-size:12.5px;min-width:96px;flex:0 0 auto}
   .nome{flex:1}
@@ -197,6 +200,12 @@
   table.extrato tfoot td.lbl{text-align:left;font-family:var(--sans);text-transform:uppercase;letter-spacing:.3px}
   .ex-pos{color:var(--green)} .ex-neg{color:var(--red)}
   .extrato-vazio{padding:24px 16px;text-align:center;color:var(--ink-2)}
+  /* Títulos das seções Realizado / Previsto dentro do extrato */
+  .ex-sec{padding:12px 14px 6px;font-family:var(--num);font-weight:700;font-size:13px;
+    letter-spacing:.3px;color:var(--brand-2);background:var(--surface);position:sticky;left:0}
+  .ex-sec.prev{color:#a16207}
+  .ex-sec .ex-dot{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:7px;vertical-align:middle}
+  .ex-sec.real .ex-dot{background:var(--brand)} .ex-sec.prev .ex-dot{background:#eab308}
   @media (max-width:768px){ table.extrato{font-size:11px} table.extrato thead th{font-size:9.5px} }
 
   /* TELA DE SENHA */
@@ -342,6 +351,7 @@
 
   <div class="toolbar">
     <div class="grow"><input type="search" id="busca" placeholder="Buscar conta ou código…"></div>
+    <label class="chk"><input type="checkbox" id="chkPrev"> Ocultar previsões</label>
     <label class="chk"><input type="checkbox" id="chkZeros"> Ocultar contas zeradas</label>
     <button class="btn-ghost" id="btnExpand">Expandir tudo</button>
     <button class="btn-ghost" id="btnCollapse">Recolher</button>
@@ -349,10 +359,14 @@
   </div>
 
   <div class="panel">
-    <table>
-      <thead><tr><th>Conta</th><th class="eye-col"></th><th class="r">Valor (R$)</th><th class="r">%</th></tr></thead>
+    <table id="tabela">
+      <thead><tr>
+        <th>Conta</th><th class="eye-col"></th>
+        <th class="r">Valor Realizado (R$)</th><th class="r">AV%</th>
+        <th class="r col-prev">Valor Previsto (R$)</th><th class="r col-prev">AV%</th>
+      </tr></thead>
       <tbody id="corpo">
-        <tr><td colspan="4"><div class="status"><span class="spin"></span>Carregando dados da planilha…</div></td></tr>
+        <tr><td colspan="6"><div class="status"><span class="spin"></span>Carregando dados da planilha…</div></td></tr>
       </tbody>
     </table>
   </div>
@@ -381,6 +395,59 @@ function esquecerSenha(){ try{ localStorage.removeItem(CHAVE_SENHA); }catch(_){ 
 const COL = { data:0, conta:1, recN:[4,5,6,7], pagN:[11,12,13,14], valor:18 };
 /* Colunas usadas no EXTRATO (pop-up do olho): A,B,D, I/P, J/Q, K/R, S */
 const COLX = { data:0, conta:1, parceiro:3, faturaR:8, faturaP:15, subR:9, subP:16, obsR:10, obsP:17, valor:18 };
+
+/* ---- Base PREVISÕES (base_previsoes, colunas A..V, 0-based) ----
+   Parâmetros: data de VENCIMENTO (col I = 8) e VALOR ORIGINAL (col K = 10).
+   Centro de custo = S/T/U/V (18..21). Pagar já vem negativo da extração. */
+const COLP = { parceiro:0, conta:1, nota:2, sub:3, obs:17, dataVenc:8,
+               ccN:[18,19,20,21], valor:10 };
+
+/* -------- Dias úteis / feriados (para posicionar as PREVISÕES) --------
+   Regra: vencimento em sábado/domingo -> próximo dia útil;
+          vencimento em feriado -> dia útil ANTERIOR. */
+const _feriadosCache = {};
+function _isoDate(d){
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function _pascoa(ano){
+  const a=ano%19,b=Math.floor(ano/100),c=ano%100,d=Math.floor(b/4),e=b%4,
+        f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3),h=(19*a+b-d-g+15)%30,
+        i=Math.floor(c/4),k=c%4,l=(32+2*e+2*i-h-k)%7,m=Math.floor((a+11*h+22*l)/451),
+        mes=Math.floor((h+l-7*m+114)/31),dia=((h+l-7*m+114)%31)+1;
+  return new Date(ano,mes-1,dia);
+}
+function feriados(ano){
+  if(_feriadosCache[ano]) return _feriadosCache[ano];
+  const s=new Set();
+  // fixos nacionais (inclui 20/11 Consciência Negra)
+  const fix=[[1,1],[4,21],[5,1],[9,7],[10,12],[11,2],[11,15],[11,20],[12,25]];
+  for(const [m,d] of fix) s.add(ano+'-'+String(m).padStart(2,'0')+'-'+String(d).padStart(2,'0'));
+  // móveis (Páscoa)
+  const pa=_pascoa(ano);
+  const addOff=off=>{ const d=new Date(pa); d.setDate(d.getDate()+off); s.add(_isoDate(d)); };
+  addOff(-48); addOff(-47); // Carnaval (segunda e terça)
+  addOff(-2);               // Sexta-feira Santa
+  addOff(60);               // Corpus Christi
+  _feriadosCache[ano]=s; return s;
+}
+function _ehDiaUtil(d){
+  const w=d.getDay();
+  if(w===0||w===6) return false;
+  return !feriados(d.getFullYear()).has(_isoDate(d));
+}
+/* Recebe 'AAAA-MM-DD' e devolve o dia útil ajustado (também 'AAAA-MM-DD'). */
+function ajustarDiaUtil(iso){
+  if(!iso) return iso;
+  const [a,m,dd]=iso.split('-').map(Number);
+  const d=new Date(a,m-1,dd);
+  const w=d.getDay();
+  if(feriados(a).has(iso)){
+    do{ d.setDate(d.getDate()-1); }while(!_ehDiaUtil(d));   // feriado -> dia útil anterior
+  }else if(w===0||w===6){
+    do{ d.setDate(d.getDate()+1); }while(!_ehDiaUtil(d));   // fim de semana -> próximo dia útil
+  }
+  return _isoDate(d);
+}
 
 /* Mapa Conta Movimento (coluna B da base) -> Empresa do grupo Belt.
    Chaves normalizadas (MAIÚSCULAS, sem acento). Edite aqui se surgir conta nova. */
@@ -458,7 +525,7 @@ const codigoDe = txt => (txt||'').toString().trim().split(/\s+/)[0] || '';
 /* ------------------------------ árvore ----------------------------------- */
 function montarArvore(){
   const map=new Map(); const raizes=[];
-  for(const c of PLANO){ if(c.cod==='RESULTADO') continue; map.set(c.cod,{...c,direct:0,total:0,children:[]}); }
+  for(const c of PLANO){ if(c.cod==='RESULTADO') continue; map.set(c.cod,{...c,direct:0,total:0,directPrev:0,totalPrev:0,children:[]}); }
   for(const node of map.values()){
     const partes=node.cod.split('.');
     if(partes.length===1) raizes.push(node);
@@ -467,12 +534,16 @@ function montarArvore(){
   return {map,raizes};
 }
 function resolver(map,cod){ let p=cod.split('.'); while(p.length){ const c=p.join('.'); if(map.has(c)) return map.get(c); p.pop(); } return null; }
-function somarTotais(node){ let t=node.direct; for(const ch of node.children) t+=somarTotais(ch); node.total=t; return t; }
+function somarTotais(node){
+  let t=node.direct, tp=node.directPrev;
+  for(const ch of node.children){ somarTotais(ch); t+=ch.total; tp+=ch.totalPrev; }
+  node.total=t; node.totalPrev=tp; return t;
+}
 
 /* --------------------------- estado + cálculo ---------------------------- */
-let LINHAS=[], MESES=[], colapsados=new Set(), chartDiario=null;
+let LINHAS=[], LINHAS_PREV=[], MESES=[], colapsados=new Set(), chartDiario=null;
 
-function processar(mesSel, empresaSel){
+function processar(mesSel, empresaSel, ocultarPrev){
   const {map,raizes}=montarArvore();
   let ent=0,sai=0,qEnt=0,qSai=0,qMov=0,naoClass=0;
   const porDiaMap={};  // 'AAAA-MM-DD' -> resultado líquido do dia (entradas - saídas)
@@ -494,13 +565,39 @@ function processar(mesSel, empresaSel){
     if(iso) porDiaMap[iso]=(porDiaMap[iso]||0)+valor;
     if(ym)  porMesMap[ym]=(porMesMap[ym]||0)+valor;
   }
+
+  // -------- PREVISÕES (base_previsoes) --------
+  // Posicionadas pela DATA DE VENCIMENTO ajustada ao dia útil; valor = VALOR
+  // ORIGINAL (pagar já vem negativo da extração). Ignoradas se "Ocultar previsões".
+  const porDiaPrev={}, porMesPrev={};
+  let qPrev=0, naoClassPrev=0, entPrev=0, saiPrev=0;
+  if(!ocultarPrev){
+    for(const cells of LINHAS_PREV){
+      const ym=toMonth(cells[COLP.dataVenc]);
+      if(mesSel && mesSel!=='__all__' && ym!==mesSel) continue;
+      if(empresaSel && empresaSel!=='__all__' && empresaDaConta(cells[COLP.conta])!==empresaSel) continue;
+      const valor=parseNum(cells[COLP.valor]);
+      const cod=codigoDe(textoProfundo(cells,COLP.ccN));
+      if(!cod) continue;
+      qPrev++;
+      if(valor>=0) entPrev+=valor; else saiPrev+=-valor;
+      const node=resolver(map,cod); if(node) node.directPrev+=valor; else naoClassPrev+=valor;
+      const isoAj=ajustarDiaUtil(toISO(cells[COLP.dataVenc]));
+      if(isoAj) porDiaPrev[isoAj]=(porDiaPrev[isoAj]||0)+valor;
+      if(ym)    porMesPrev[ym]=(porMesPrev[ym]||0)+valor;
+    }
+  }
+
   for(const r of raizes) somarTotais(r);
   const resultado=raizes.reduce((s,r)=>s+r.total,0)+naoClass;
+  const resultadoPrev=raizes.reduce((s,r)=>s+r.totalPrev,0)+naoClassPrev;
 
   const dias=Object.keys(porDiaMap).sort().map(iso=>({iso, net:porDiaMap[iso]}));
   const meses=Object.keys(porMesMap).sort().map(ym=>({ym, net:porMesMap[ym]}));
+  const diasPrev=Object.keys(porDiaPrev).sort().map(iso=>({iso, net:porDiaPrev[iso]}));
+  const mesesPrev=Object.keys(porMesPrev).sort().map(ym=>({ym, net:porMesPrev[ym]}));
 
-  // --- Ponto de equilíbrio ---
+  // --- Ponto de equilíbrio (sobre o REALIZADO) ---
   const somaGrupos=(cods)=>cods.reduce((s,c)=>{ const n=map.get(c); return s + (n?n.total:0); },0);
   const receita = somaGrupos(PE_RECEITA);                 // positivo
   const variaveis = Math.abs(somaGrupos(PE_VARIAVEIS));   // custos variáveis (módulo)
@@ -510,39 +607,48 @@ function processar(mesSel, empresaSel){
   const pe = (receita>0 && mcPct>0) ? fixos/mcPct : null; // ponto de equilíbrio R$
 
   return {map,raizes,ent,sai,resultado,qEnt,qSai,qMov,naoClass,dias,meses,
+          resultadoPrev,qPrev,naoClassPrev,entPrev,saiPrev,diasPrev,mesesPrev,
           receita,variaveis,fixos,mc,mcPct,pe};
 }
 
 /* -------- gráfico de colunas: resultado diário (mês único) ou mensal ------ */
 const MESES_ABREV=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
-function renderChartResultado(R, mesSel){
+function renderChartResultado(R, mesSel, ocultarPrev){
   if(typeof Chart==='undefined') return;
   const umMes = mesSel && mesSel!=='__all__';
 
-  let labels, dados, tituloTip;
+  // Mapa realizado e previsto pela mesma chave (dia 'AAAA-MM-DD' ou mês 'AAAA-MM'),
+  // unindo as chaves das duas séries para alinhar as colunas.
+  const mapR={}, mapP={};
   if(umMes){
-    // Resultado diário: dia (1..31)
-    labels = R.dias.map(d=>{ const [,,dd]=d.iso.split('-'); return String(+dd); });
-    dados  = R.dias.map(d=>+d.net.toFixed(2));
-    tituloTip = items=>'Dia '+items[0].label;
+    R.dias.forEach(d=>mapR[d.iso]=d.net);
+    R.diasPrev.forEach(d=>mapP[d.iso]=d.net);
   }else{
-    // Resultado mensal: consolidado mm/aaaa
-    labels = R.meses.map(x=>{ const [a,m]=x.ym.split('-'); return `${m}/${a}`; });
-    dados  = R.meses.map(x=>+x.net.toFixed(2));
-    tituloTip = items=>{ const [m,a]=items[0].label.split('/'); return `${MESES_ABREV[(+m)-1]||m}/${a}`; };
+    R.meses.forEach(x=>mapR[x.ym]=x.net);
+    R.mesesPrev.forEach(x=>mapP[x.ym]=x.net);
   }
-  const serie = umMes ? R.dias : R.meses;
-  const cores = serie.map(x=>x.net>=0?'#1a9455':'#cf3a2c');
+  const chaves=[...new Set([...Object.keys(mapR),...Object.keys(mapP)])].sort();
+  const labels = chaves.map(k=> umMes ? String(+k.split('-')[2]) : (k.split('-')[1]+'/'+k.split('-')[0]));
+  const dadosR = chaves.map(k=>+( (mapR[k]||0) ).toFixed(2));
+  const dadosP = chaves.map(k=>+( (mapP[k]||0) ).toFixed(2));
+  const coresR = dadosR.map(v=>v>=0?'#1a9455':'#cf3a2c');
+
+  const tituloTip = umMes
+    ? items=>'Dia '+items[0].label
+    : items=>{ const [m,a]=items[0].label.split('/'); return `${MESES_ABREV[(+m)-1]||m}/${a}`; };
+
+  const datasets=[{label:'Realizado',data:dadosR,backgroundColor:coresR,borderRadius:4,maxBarThickness:46}];
+  if(!ocultarPrev) datasets.push({label:'Previsto',data:dadosP,backgroundColor:'#eab308',borderRadius:4,maxBarThickness:46});
 
   const ctx=document.getElementById('chartDiario').getContext('2d');
   if(chartDiario) chartDiario.destroy();
   chartDiario=new Chart(ctx,{
     type:'bar',
-    data:{labels,datasets:[{label:'Resultado',data:dados,backgroundColor:cores,borderRadius:4,maxBarThickness:46}]},
+    data:{labels,datasets},
     options:{
       responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false},
-        tooltip:{callbacks:{ title:tituloTip, label:c=>'R$ '+money(c.raw) }}},
+      plugins:{legend:{display:!ocultarPrev,position:'top',align:'end',labels:{boxWidth:12,font:{size:12}}},
+        tooltip:{callbacks:{ title:tituloTip, label:c=>c.dataset.label+': R$ '+money(c.raw) }}},
       scales:{
         x:{grid:{display:false},ticks:{font:{size:11},autoSkip:true,maxRotation:0}},
         y:{grid:{color:'#eceff1'},ticks:{callback:v=>v.toLocaleString('pt-BR')}}
@@ -556,8 +662,9 @@ function render(){
   const mesSel=document.getElementById('selMes').value;
   const empresaSel=document.getElementById('selEmpresa').value;
   const hideZeros=document.getElementById('chkZeros').checked;
+  const ocultarPrev=document.getElementById('chkPrev').checked;
   const termo=document.getElementById('busca').value.trim().toLowerCase();
-  const R=processar(mesSel, empresaSel);
+  const R=processar(mesSel, empresaSel, ocultarPrev);
 
   document.getElementById('kpiEnt').textContent='R$ '+money(R.ent);
   document.getElementById('kpiSai').textContent='R$ '+money(R.sai);
@@ -566,7 +673,10 @@ function render(){
   const kRes=document.getElementById('kpiRes');
   kRes.textContent='R$ '+money(R.resultado);
   kRes.className='kpi-val '+(R.resultado>=0?'pos':'neg');
-  document.getElementById('kpiMov').textContent=R.qMov+' lançamentos no período';
+  document.getElementById('kpiMov').textContent =
+    ocultarPrev
+      ? R.qMov+' lançamentos no período'
+      : 'Previsto: R$ '+money(R.resultadoPrev)+' · '+R.qMov+' lançamentos';
 
   // KPI Ponto de equilíbrio
   const kPE=document.getElementById('kpiPE');
@@ -581,7 +691,7 @@ function render(){
   const umMes = mesSel && mesSel!=='__all__';
   document.getElementById('tituloGrafico').textContent =
     umMes ? 'Resultado diário (Em R$)' : 'Resultado mensal (Em R$)';
-  renderChartResultado(R, mesSel);
+  renderChartResultado(R, mesSel, ocultarPrev);
 
   // Cabeçalho de impressão: período + empresa
   document.getElementById('printPeriodo').textContent =
@@ -589,10 +699,15 @@ function render(){
   document.getElementById('printEmpresa').textContent =
     'Empresa: ' + (empresaSel==='__all__' ? 'Todas' : empresaSel);
 
-  // Denominador da análise vertical (%): total do grupo 01 (receita)
+  // Denominador da análise vertical (AV%): total do grupo 01 (receita)
   const receita01 = (R.map.get('01') && R.map.get('01').total) || 0;
+  const receita01P = (R.map.get('01') && R.map.get('01').totalPrev) || 0;
   const pctDe = v => receita01!==0 ? (v/receita01*100) : null;
+  const pctDeP = v => receita01P!==0 ? (v/receita01P*100) : null;
   const fmtPct = v => v===null ? '—' : v.toFixed(1).replace('.',',')+'%';
+
+  // Mostra/esconde as duas colunas de previsão na tabela
+  document.getElementById('tabela').classList.toggle('ocultar-prev', ocultarPrev);
 
   let maxAbs=0; for(const r of R.raizes) maxAbs=Math.max(maxAbs,Math.abs(r.total)); maxAbs=maxAbs||1;
 
@@ -618,9 +733,8 @@ function render(){
       const indent=(node.nivel-1)*18;
       const barra = node.nivel===1
         ? `<div class="bar"><span style="width:${(Math.abs(node.total)/maxAbs*100).toFixed(1)}%;background:#ffffff"></span></div>` : '';
-      const corVal = node.nivel===1 ? '#ffffff'
-        : (Math.abs(node.total)<0.005?'var(--ink-3)':(node.total>=0?'var(--green)':'var(--red)'));
-      const pc = pctDe(node.total);
+      const corDe = v => node.nivel===1 ? '#ffffff'
+        : (Math.abs(v)<0.005?'var(--ink-3)':(v>=0?'var(--green)':'var(--red)'));
       tr.innerHTML=`
         <td><div class="conta" style="padding-left:${indent}px">
           <span class="caret ${temFilhos?'':'spacer'}" data-cod="${node.cod}">${temFilhos?(colapsado?'▶':'▼'):'•'}</span>
@@ -628,8 +742,10 @@ function render(){
           <span class="nome">${node.nome}</span>${barra}
         </div></td>
         <td class="eye"><button class="btn-eye" data-ver="${node.cod}" title="Ver lançamentos">👁</button></td>
-        <td class="v" style="color:${corVal}">${money(node.total)}</td>
-        <td class="p">${fmtPct(pc)}</td>`;
+        <td class="v" style="color:${corDe(node.total)}">${money(node.total)}</td>
+        <td class="p">${fmtPct(pctDe(node.total))}</td>
+        <td class="v col-prev" style="color:${corDe(node.totalPrev)}">${money(node.totalPrev)}</td>
+        <td class="p col-prev">${fmtPct(pctDeP(node.totalPrev))}</td>`;
       frag.appendChild(tr);
     }
     for(const ch of node.children) linha(ch);
@@ -641,14 +757,18 @@ function render(){
      <span class="cod"></span><span class="nome">Resultado Final</span></div></td>
      <td class="eye"></td>
      <td class="v" style="color:${R.resultado>=0?'var(--green)':'var(--red)'}">${money(R.resultado)}</td>
-     <td class="p">${fmtPct(pctDe(R.resultado))}</td>`;
+     <td class="p">${fmtPct(pctDe(R.resultado))}</td>
+     <td class="v col-prev" style="color:${R.resultadoPrev>=0?'var(--green)':'var(--red)'}">${money(R.resultadoPrev)}</td>
+     <td class="p col-prev">${fmtPct(pctDeP(R.resultadoPrev))}</td>`;
   frag.appendChild(trR);
   corpo.appendChild(frag);
 
-  if(R.naoClass){
+  if(R.naoClass || R.naoClassPrev){
     const avi=document.createElement('tr');
-    avi.innerHTML=`<td colspan="4" style="color:var(--red);font-size:13px;padding:10px 18px">
-      ⚠ R$ ${money(R.naoClass)} em lançamentos com conta fora do plano (não classificados).</td>`;
+    let msg='';
+    if(R.naoClass) msg+=`⚠ R$ ${money(R.naoClass)} em lançamentos realizados com conta fora do plano (não classificados).`;
+    if(R.naoClassPrev && !ocultarPrev) msg+=`${msg?'<br>':''}⚠ R$ ${money(R.naoClassPrev)} em previsões com conta fora do plano (não classificadas).`;
+    avi.innerHTML=`<td colspan="6" style="color:var(--red);font-size:13px;padding:10px 18px">${msg}</td>`;
     corpo.appendChild(avi);
   }
 
@@ -683,11 +803,16 @@ async function carregar(){
   if(!senha){ mostrarLogin(); return; }
 
   const corpo=document.getElementById('corpo');
-  corpo.innerHTML=`<tr><td colspan="4"><div class="status"><span class="spin"></span>Carregando dados da planilha…</div></td></tr>`;
+  corpo.innerHTML=`<tr><td colspan="6"><div class="status"><span class="spin"></span>Carregando dados da planilha…</div></td></tr>`;
+
+  const sep = APPS_SCRIPT_URL.includes('?') ? '&' : '?';
+  const urlBase = (base) =>
+    APPS_SCRIPT_URL + sep + 'token=' + encodeURIComponent(senha)
+    + (base ? '&base=' + encodeURIComponent(base) : '') + '&_=' + Date.now();
 
   try{
-    const sep = APPS_SCRIPT_URL.includes('?') ? '&' : '?';
-    const resp = await fetch(APPS_SCRIPT_URL + sep + 'token=' + encodeURIComponent(senha) + '&_=' + Date.now());
+    // 1) DFC (base padrão) — obrigatória
+    const resp = await fetch(urlBase());
     const txt = await resp.text();
 
     if(txt.trim()==='__SENHA_INCORRETA__'){
@@ -699,10 +824,24 @@ async function carregar(){
 
     const rows = parseCSV(txt).filter(r=>r.some(c=>(c||'').trim()!==''));
     if(rows.length<=1) throw new Error('a planilha não retornou lançamentos');
-
     LINHAS=rows.slice(1);
+
+    // 2) PREVISÕES (base=previsoes) — opcional: se falhar, o painel segue só com o realizado
+    LINHAS_PREV=[];
+    try{
+      const respP = await fetch(urlBase('previsoes'));
+      const txtP = await respP.text();
+      const t = txtP.trim();
+      if(respP.ok && t && t!=='__SENHA_INCORRETA__' && t!=='__BASE_DESCONHECIDA__'){
+        const rowsP = parseCSV(txtP).filter(r=>r.some(c=>(c||'').trim()!==''));
+        if(rowsP.length>1) LINHAS_PREV=rowsP.slice(1);
+      }
+    }catch(_){ /* previsões indisponíveis: mantém LINHAS_PREV=[] */ }
+
+    // Meses: união do realizado (data) + previsões (vencimento)
     const set=new Set();
     for(const r of LINHAS){ const ym=toMonth(r[COL.data]); if(ym) set.add(ym); }
+    for(const r of LINHAS_PREV){ const ym=toMonth(r[COLP.dataVenc]); if(ym) set.add(ym); }
     MESES=[...set].sort();
     const sel=document.getElementById('selMes'); sel.innerHTML='';
     MESES.forEach(ym=>{ const o=document.createElement('option'); o.value=ym; o.textContent=rotuloMes(ym); sel.appendChild(o); });
@@ -710,11 +849,11 @@ async function carregar(){
     sel.value = MESES.length ? MESES[MESES.length-1] : '__all__';
 
     document.getElementById('rodape').innerHTML=
-      `${LINHAS.length} lançamentos · última leitura ${new Date().toLocaleString('pt-BR')}`;
+      `${LINHAS.length} lançamentos · ${LINHAS_PREV.length} previsões · última leitura ${new Date().toLocaleString('pt-BR')}`;
     esconderLogin();
     render();
   }catch(e){
-    corpo.innerHTML=`<tr><td colspan="4"><div class="status" style="color:var(--red);text-align:left">
+    corpo.innerHTML=`<tr><td colspan="6"><div class="status" style="color:var(--red);text-align:left">
       <b>Não consegui carregar os dados.</b><br><br>
       Detalhe: ${e.message}<br><br>
       <span style="color:var(--ink-2)">Verifique se a URL do Apps Script está correta no arquivo
@@ -725,17 +864,28 @@ async function carregar(){
 
 /* ---------------------- exportar / imprimir / eventos -------------------- */
 function exportarCSV(){
-  const R=processar(document.getElementById('selMes').value, document.getElementById('selEmpresa').value);
+  const ocultarPrev=document.getElementById('chkPrev').checked;
+  const R=processar(document.getElementById('selMes').value, document.getElementById('selEmpresa').value, ocultarPrev);
   const hideZeros=document.getElementById('chkZeros').checked;
   const receita01=(R.map.get('01') && R.map.get('01').total) || 0;
+  const receita01P=(R.map.get('01') && R.map.get('01').totalPrev) || 0;
   const pct = v => receita01!==0 ? (v/receita01*100).toFixed(1).replace('.',',')+'%' : '';
-  const linhas=[['Codigo','Conta','Nivel','Valor','%']];
+  const pctP = v => receita01P!==0 ? (v/receita01P*100).toFixed(1).replace('.',',')+'%' : '';
+  const num = v => v.toFixed(2).replace('.',',');
+  const cab=['Codigo','Conta','Nivel','Valor Realizado','AV%'];
+  if(!ocultarPrev) cab.push('Valor Previsto','AV% Previsto');
+  const linhas=[cab];
   R.raizes.forEach(function w(n){
-    if(!(hideZeros && Math.abs(n.total)<0.005))
-      linhas.push([n.cod,n.nome,n.nivel,n.total.toFixed(2).replace('.',','),pct(n.total)]);
+    if(!(hideZeros && Math.abs(n.total)<0.005 && Math.abs(n.totalPrev)<0.005)){
+      const row=[n.cod,n.nome,n.nivel,num(n.total),pct(n.total)];
+      if(!ocultarPrev) row.push(num(n.totalPrev),pctP(n.totalPrev));
+      linhas.push(row);
+    }
     n.children.forEach(w);
   });
-  linhas.push(['','RESULTADO FINAL','',R.resultado.toFixed(2).replace('.',','),pct(R.resultado)]);
+  const rowR=['','RESULTADO FINAL','',num(R.resultado),pct(R.resultado)];
+  if(!ocultarPrev) rowR.push(num(R.resultadoPrev),pctP(R.resultadoPrev));
+  linhas.push(rowR);
   const csv=linhas.map(r=>r.map(c=>{c=String(c);return /[",;\n]/.test(c)?'"'+c.replace(/"/g,'""')+'"':c;}).join(';')).join('\n');
   const blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'});
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
@@ -768,6 +918,7 @@ document.getElementById('btnRefresh').addEventListener('click',carregar);
 document.getElementById('selMes').addEventListener('change',render);
 document.getElementById('selEmpresa').addEventListener('change',render);
 document.getElementById('chkZeros').addEventListener('change',render);
+document.getElementById('chkPrev').addEventListener('change',render);
 document.getElementById('busca').addEventListener('input',render);
 document.getElementById('btnCSV').addEventListener('click',exportarCSV);
 document.getElementById('btnPrint').addEventListener('click',()=>window.print());
@@ -780,7 +931,7 @@ document.getElementById('btnCollapse').addEventListener('click',()=>{
 /* ============================================================================
    EXTRATO (pop-up do olho) — lançamentos de um centro de custo
    ========================================================================== */
-let extratoAtual = { titulo:'', linhas:[] };  // guardado para o Exportar CSV
+let extratoAtual = { titulo:'', linhas:[], linhasP:[] };  // guardado para o Exportar CSV
 
 // Código de classificação de um movimento (receber OU pagar, nível mais profundo)
 function codMovimento(cells){
@@ -818,6 +969,7 @@ function abrirExtrato(cod){
   const umVal = c => (c===undefined||c===null) ? '' : String(c).trim();
   const primeiro = (...xs)=>{ for(const x of xs){ const s=umVal(x); if(s) return s; } return ''; };
 
+  // ---- SEÇÃO REALIZADO (base DFC) ----
   let totEnt=0, totSai=0, saldo=0;
   const linhas = movs.map(cells=>{
     const valor = parseNum(cells[COL.valor]);
@@ -835,11 +987,45 @@ function abrirExtrato(cod){
     };
   });
 
-  extratoAtual = { titulo:nomeConta, linhas };
+  // ---- SEÇÃO PREVISTO (base_previsoes) — mesmo centro de custo, filtros atuais ----
+  const ocultarPrev=document.getElementById('chkPrev').checked;
+  const movsP=[];
+  if(!ocultarPrev){
+    for(const cells of LINHAS_PREV){
+      const ym=toMonth(cells[COLP.dataVenc]);
+      if(mesSel && mesSel!=='__all__' && ym!==mesSel) continue;
+      if(empresaSel && empresaSel!=='__all__' && empresaDaConta(cells[COLP.conta])!==empresaSel) continue;
+      const cm=codigoDe(textoProfundo(cells,COLP.ccN));
+      if(!cm) continue;
+      if(!(cm===cod || cm.startsWith(cod+'.'))) continue;
+      movsP.push(cells);
+    }
+    movsP.sort((a,b)=> toISO(a[COLP.dataVenc]).localeCompare(toISO(b[COLP.dataVenc])));
+  }
+  let totEntP=0, totSaiP=0, saldoP=0;
+  const linhasP = movsP.map(cells=>{
+    const valor = parseNum(cells[COLP.valor]);   // pagar já vem negativo
+    const ent = valor>0 ? valor : 0;
+    const sai = valor<0 ? -valor : 0;
+    totEntP+=ent; totSaiP+=sai; saldoP+=valor;
+    return {
+      data:   umVal(cells[COLP.dataVenc]),
+      conta:  umVal(cells[COLP.conta]),
+      parceiro: umVal(cells[COLP.parceiro]),
+      fatura: umVal(cells[COLP.nota]),
+      sub:    umVal(cells[COLP.sub]),
+      obs:    umVal(cells[COLP.obs]),
+      ent, sai, saldo:saldoP
+    };
+  });
 
-  // renderiza
+  extratoAtual = { titulo:nomeConta, linhas, linhasP };
+
+  // ---- renderização ----
   const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  const corpoHtml = linhas.length ? `
+  function tabela(arr, tE, tS){
+    if(!arr.length) return `<div class="extrato-vazio">Nenhum lançamento para esta conta no período/empresa selecionados.</div>`;
+    return `
     <table class="extrato">
       <colgroup>
         <col style="width:11%"><col style="width:11%"><col style="width:15%"><col style="width:12%">
@@ -852,7 +1038,7 @@ function abrirExtrato(cod){
         <th class="r">Entrada</th><th class="r">Saída</th><th class="r">Saldo</th>
       </tr></thead>
       <tbody>
-        ${linhas.map(l=>`<tr>
+        ${arr.map(l=>`<tr>
           <td>${esc(l.data)}</td><td>${esc(l.conta)}</td><td>${esc(l.parceiro)}</td>
           <td>${esc(l.fatura)}</td><td>${esc(l.sub)}</td><td>${esc(l.obs)}</td>
           <td class="r ex-pos">${l.ent?money(l.ent):''}</td>
@@ -861,12 +1047,22 @@ function abrirExtrato(cod){
         </tr>`).join('')}
       </tbody>
       <tfoot><tr>
-        <td class="lbl" colspan="6">TOTAL · ${linhas.length} lançamento(s)</td>
-        <td class="ex-pos">${money(totEnt)}</td>
-        <td class="ex-neg">${money(totSai)}</td>
-        <td style="color:${(totEnt-totSai)>=0?'var(--green)':'var(--red)'}">${money(totEnt-totSai)}</td>
+        <td class="lbl" colspan="6">TOTAL · ${arr.length} lançamento(s)</td>
+        <td class="ex-pos">${money(tE)}</td>
+        <td class="ex-neg">${money(tS)}</td>
+        <td style="color:${(tE-tS)>=0?'var(--green)':'var(--red)'}">${money(tE-tS)}</td>
       </tr></tfoot>
-    </table>` : `<div class="extrato-vazio">Nenhum lançamento para esta conta no período/empresa selecionados.</div>`;
+    </table>`;
+  }
+
+  let corpoHtml =
+    `<div class="ex-sec real"><span class="ex-dot"></span>=== Realizado</div>` +
+    tabela(linhas, totEnt, totSai);
+  if(!ocultarPrev){
+    corpoHtml +=
+      `<div class="ex-sec prev"><span class="ex-dot"></span>=== Previsto</div>` +
+      tabela(linhasP, totEntP, totSaiP);
+  }
 
   document.getElementById('extratoTitulo').textContent = 'Extrato · '+nomeConta;
   document.getElementById('extratoBody').innerHTML = corpoHtml;
@@ -876,15 +1072,18 @@ function abrirExtrato(cod){
 function fecharExtrato(){ document.getElementById('modalExtrato').classList.add('hidden'); }
 
 function exportarExtratoCSV(){
-  const L=extratoAtual.linhas;
-  if(!L.length) return;
+  const L=extratoAtual.linhas||[], LP=extratoAtual.linhasP||[];
+  if(!L.length && !LP.length) return;
   const cab=['Data','Conta Movimento','Parceiro','Fatura','Sub-Numero','Observacao','Entrada','Saida','Saldo'];
-  const linhas=[cab];
-  for(const l of L){
-    linhas.push([l.data,l.conta,l.parceiro,l.fatura,l.sub,l.obs,
+  const linhaDe = l => [l.data,l.conta,l.parceiro,l.fatura,l.sub,l.obs,
       l.ent?l.ent.toFixed(2).replace('.',','):'',
       l.sai?l.sai.toFixed(2).replace('.',','):'',
-      l.saldo.toFixed(2).replace('.',',')]);
+      l.saldo.toFixed(2).replace('.',',')];
+  const linhas=[['=== REALIZADO'],cab];
+  for(const l of L) linhas.push(linhaDe(l));
+  if(LP.length){
+    linhas.push([]); linhas.push(['=== PREVISTO']); linhas.push(cab);
+    for(const l of LP) linhas.push(linhaDe(l));
   }
   const csv=linhas.map(r=>r.map(c=>{c=String(c);return /[",;\n]/.test(c)?'"'+c.replace(/"/g,'""')+'"':c;}).join(';')).join('\n');
   const blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'});
