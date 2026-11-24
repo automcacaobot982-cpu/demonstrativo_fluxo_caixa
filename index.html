@@ -220,6 +220,25 @@
   .ex-sec.real .ex-dot{background:var(--brand)} .ex-sec.prev .ex-dot{background:#eab308}
   @media (max-width:768px){ table.extrato{font-size:11px} table.extrato thead th{font-size:9.5px} }
 
+  /* PREVISÃO SEMANAL */
+  .prev-mes{padding:16px 14px 4px;font-family:var(--num);font-weight:800;font-size:13px;
+    letter-spacing:.6px;text-transform:uppercase;color:var(--brand-2)}
+  table.prev-tbl{width:100%;border-collapse:collapse;font-size:12.5px;margin:4px 0 2px}
+  table.prev-tbl th,table.prev-tbl td{padding:7px 12px;border-bottom:1px solid var(--line)}
+  table.prev-tbl .num{text-align:right;font-family:var(--num);font-variant-numeric:tabular-nums;white-space:nowrap}
+  table.prev-tbl thead.sem th{background:var(--brand);color:#fff;text-align:left;font-weight:700;font-size:12px;
+    -webkit-print-color-adjust:exact;print-color-adjust:exact}
+  table.prev-tbl thead.sem th.num{text-align:right}
+  table.prev-tbl tr.emp td:first-child{font-weight:600;color:var(--ink-2)}
+  table.prev-tbl tr.tot td{font-weight:800;background:var(--brand-tint);border-top:2px solid var(--line-2)}
+  .sal-pos{color:var(--green)} .sal-neg{color:var(--red)}
+  .prev-geral{display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;align-items:center;
+    padding:14px 16px;margin:12px 0 4px;background:var(--brand);color:#fff;border-radius:10px;
+    font-family:var(--num);font-size:13px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .prev-geral b{font-weight:800}
+  .prev-nota{padding:10px 14px 14px;color:var(--ink-2);font-size:11.5px;line-height:1.55}
+  @media (max-width:768px){ table.prev-tbl{font-size:11px} table.prev-tbl th,table.prev-tbl td{padding:6px 7px} }
+
   /* TELA DE SENHA */
   .login-overlay{position:fixed;inset:0;z-index:100;padding:20px;
     display:flex;align-items:center;justify-content:center;
@@ -291,6 +310,7 @@
     <div class="tb-title">Demonstrativo de Fluxo de Caixa<small>Belt Correias · Realizado</small></div>
   </div>
   <div class="spacer"></div>
+  <button class="nav-btn" id="btnPrevSemanal" title="Previsão semanal (próximos 90 dias)">📅 Previsão Semanal</button>
   <select id="selMes" class="hdr-select" title="Período"><option>—</option></select>
   <select id="selEmpresa" class="hdr-select" title="Empresa">
     <option value="__all__">Todas</option>
@@ -332,6 +352,19 @@
   </div>
 </div>
 
+<!-- MODAL: previsão semanal (próximos 90 dias por semana e empresa) -->
+<div id="modalPrev" class="modal-overlay hidden">
+  <div class="modal modal-wide">
+    <div class="modal-head"><h3 id="prevTitulo">Previsão Semanal · próximos 90 dias</h3>
+      <button class="btn-x" id="btnFecharPrev" aria-label="Fechar">✕</button></div>
+    <div class="modal-body extrato-body" id="prevBody"></div>
+    <div class="modal-foot">
+      <button class="btn-ghost" id="btnPrevCSV">Exportar CSV</button>
+      <button class="btn-ghost" id="btnOkPrev">Fechar</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL: instruções de instalação (iPhone / quando não há prompt nativo) -->
 <div id="modalInstall" class="modal-overlay hidden">
   <div class="modal">
@@ -353,7 +386,6 @@
     <div class="kpi ent"><div class="kpi-label">Entradas</div><div class="kpi-val pos" id="kpiEnt">—</div><div class="kpi-sub" id="kpiEntQtd">—</div></div>
     <div class="kpi sai"><div class="kpi-label">Saídas</div><div class="kpi-val neg" id="kpiSai">—</div><div class="kpi-sub" id="kpiSaiQtd">—</div></div>
     <div class="kpi res"><div class="kpi-label">Resultado do período</div><div class="kpi-val brand" id="kpiRes">—</div><div class="kpi-sub" id="kpiMov">—</div></div>
-    <div class="kpi pe"><div class="kpi-label">Ponto de equilíbrio</div><div class="kpi-val brand" id="kpiPE">—</div><div class="kpi-sub" id="kpiPEsub">—</div></div>
   </section>
 
   <div class="chart-card">
@@ -722,16 +754,6 @@ function render(){
     ocultarPrev
       ? R.qMov+' lançamentos no período'
       : 'Previsto: R$ '+money(R.resultadoPrev)+' · '+R.qMov+' lançamentos';
-
-  // KPI Ponto de equilíbrio
-  const kPE=document.getElementById('kpiPE');
-  if(R.pe!==null){
-    kPE.textContent='R$ '+money(R.pe);
-    document.getElementById('kpiPEsub').textContent='Margem de contrib.: '+(R.mcPct*100).toFixed(1)+'%';
-  }else{
-    kPE.textContent='—';
-    document.getElementById('kpiPEsub').textContent = R.receita>0 ? 'Margem de contribuição negativa' : 'Sem receita no período';
-  }
 
   document.getElementById('tituloGrafico').textContent =
     umMes ? 'Resultado diário (Em R$)' : 'Resultado mensal (Em R$)';
@@ -1160,6 +1182,163 @@ document.getElementById('btnExtratoCSV').addEventListener('click', exportarExtra
 document.getElementById('modalExtrato').addEventListener('click', e=>{
   if(e.target.id==='modalExtrato') fecharExtrato();   // clicar fora fecha
 });
+
+/* ============================================================================
+   PREVISÃO SEMANAL — próximos 90 dias, por semana (início no SÁBADO) e empresa
+   Regras de efetivação (cultura de antecipação de obrigações da empresa):
+     • A PAGAR: vence em dia útil -> paga no vencimento; vence sábado/domingo ->
+       paga na SEGUNDA; se a segunda não tiver expediente (feriado), ANTECIPA p/
+       o dia útil anterior; vence em feriado (dia de semana) -> ANTECIPA.
+     • A RECEBER: depende do horário bancário -> sempre no PRÓXIMO dia útil.
+   Feriados: nacionais (fixos + móveis) + regionais de SC e RS (editáveis abaixo).
+   Parâmetros: DATA DE VENCIMENTO e VALOR ORIGINAL da base_previsoes.
+   ========================================================================== */
+// Feriados regionais fixos (MM-DD) — ajuste conforme a realidade das empresas.
+const FERIADOS_REG = {
+  RS: ['09-20'],            // Revolução Farroupilha
+  SC: ['08-11','11-25']     // Dia do Estado de SC / Santa Catarina de Alexandria
+};
+function feriadosReg(ano){
+  const s = new Set(feriados(ano));                 // nacionais
+  for(const uf in FERIADOS_REG) for(const md of FERIADOS_REG[uf]) s.add(ano+'-'+md);
+  return s;
+}
+function _clone(d){ return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
+function ehUtilReg(d){ const w=d.getDay(); if(w===0||w===6) return false; return !feriadosReg(d.getFullYear()).has(_isoDate(d)); }
+function proxUtil(d){ d=_clone(d); while(!ehUtilReg(d)) d.setDate(d.getDate()+1); return d; }
+function antUtil(d){ d=_clone(d); while(!ehUtilReg(d)) d.setDate(d.getDate()-1); return d; }
+function _isoToDate(iso){ const [a,m,dd]=iso.split('-').map(Number); return new Date(a,m-1,dd); }
+
+function efetivaPagar(venc){
+  let d=_clone(venc);
+  if(ehUtilReg(d)) return d;                         // dia útil -> paga no vencimento
+  const w=d.getDay();
+  if(w===6||w===0){                                  // sábado/domingo
+    const seg=_clone(d); seg.setDate(seg.getDate()+((1-w+7)%7)); // próxima segunda
+    if(ehUtilReg(seg)) return seg;                   // segunda com expediente -> paga segunda
+    return antUtil(d);                               // segunda feriado -> antecipa
+  }
+  return antUtil(d);                                 // feriado em dia de semana -> antecipa
+}
+function efetivaReceber(venc){ const d=_clone(venc); return ehUtilReg(d) ? d : proxUtil(d); }
+
+function primUtilMes(ano,mes){ let d=new Date(ano,mes,1); while(!ehUtilReg(d)) d.setDate(d.getDate()+1); return d; }
+// Semanas de um mês: começam no sábado; a 1ª vai do 1º dia útil até a véspera do
+// 1º sábado; a última vai até a véspera do 1º dia útil do mês seguinte (absorvendo
+// o fim de semana/feriado da virada). Uma semana final só com dias não úteis funde-se.
+function semanasDoMes(ano,mes){
+  const ini=primUtilMes(ano,mes);
+  const proxIni=primUtilMes(mes===11?ano+1:ano, mes===11?0:mes+1);
+  const fim=_clone(proxIni); fim.setDate(fim.getDate()-1);
+  const starts=[_clone(ini)];
+  let d=_clone(ini);
+  while(true){ d.setDate(d.getDate()+1); if(d>fim) break; if(d.getDay()===6) starts.push(_clone(d)); }
+  if(starts.length>1){
+    const ws=starts[starts.length-1]; let temUtil=false;
+    for(let x=_clone(ws); x<=fim; x.setDate(x.getDate()+1)) if(ehUtilReg(x)){ temUtil=true; break; }
+    if(!temUtil) starts.pop();
+  }
+  const semanas=[];
+  for(let i=0;i<starts.length;i++){
+    let e; if(i<starts.length-1){ e=_clone(starts[i+1]); e.setDate(e.getDate()-1); } else e=_clone(fim);
+    semanas.push({n:i+1, ini:starts[i], fim:e, ano, mes});
+  }
+  return semanas;
+}
+
+let prevDados=null;   // guardado p/ exportar CSV
+const _MES_NOME=['JANEIRO','FEVEREIRO','MARÇO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'];
+const _EMPS=['B3','BELT','MBK'];
+
+function abrirPrevSemanal(){
+  const body=document.getElementById('prevBody');
+  if(!LINHAS_PREV.length){
+    body.innerHTML='<div class="extrato-vazio">Sem dados de previsões carregados (base_previsoes).</div>';
+    document.getElementById('modalPrev').classList.remove('hidden'); return;
+  }
+  const hoje=new Date(); hoje.setHours(0,0,0,0);
+  const fimHoriz=_clone(hoje); fimHoriz.setDate(fimHoriz.getDate()+90);
+
+  // Semanas de todos os meses que tocam o horizonte (+1 mês de folga)
+  let todas=[];
+  let cursor=new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+  const limite=new Date(fimHoriz.getFullYear(), fimHoriz.getMonth()+1, 1);
+  while(cursor<=limite){
+    todas=todas.concat(semanasDoMes(cursor.getFullYear(), cursor.getMonth()));
+    cursor=new Date(cursor.getFullYear(), cursor.getMonth()+1, 1);
+  }
+  const visiveis=todas.filter(s=> s.fim>=hoje && s.ini<=fimHoriz);
+
+  // Acumula por semana/empresa pela DATA EFETIVA
+  const idx=new Map();
+  for(const s of visiveis){ const o={}; for(const e of _EMPS) o[e]={p:0,r:0}; idx.set(s.ini.getTime(), o); }
+  for(const cells of LINHAS_PREV){
+    const iso=toISO(cells[COLP.dataVenc]); if(!iso) continue;
+    const valor=parseNum(cells[COLP.valor]); if(!valor) continue;
+    const emp=empresaDaConta(cells[COLP.conta]); if(!_EMPS.includes(emp)) continue;
+    const ef = valor<0 ? efetivaPagar(_isoToDate(iso)) : efetivaReceber(_isoToDate(iso));
+    const s = visiveis.find(w=> ef>=w.ini && ef<=w.fim); if(!s) continue;
+    const bk=idx.get(s.ini.getTime())[emp];
+    if(valor<0) bk.p += -valor; else bk.r += valor;
+  }
+
+  // Render
+  const d2=d=>String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0');
+  const cel=v=> v ? money(v) : '—';
+  let html='', mesAtual=null, gP=0, gR=0;
+  for(const s of visiveis){
+    if(s.mes!==mesAtual){ mesAtual=s.mes; html+=`<div class="prev-mes">=== ${_MES_NOME[s.mes]} ${s.ano}</div>`; }
+    const o=idx.get(s.ini.getTime()); let tP=0,tR=0;
+    const corpo=_EMPS.map(e=>{
+      const p=o[e].p, r=o[e].r, sal=r-p; tP+=p; tR+=r;
+      return `<tr class="emp"><td>${e}</td><td class="num">${cel(p)}</td><td class="num">${cel(r)}</td>`+
+             `<td class="num ${sal>=0?'sal-pos':'sal-neg'}">${money(sal)}</td></tr>`;
+    }).join('');
+    gP+=tP; gR+=tR; const salT=tR-tP;
+    html+=`<table class="prev-tbl"><thead class="sem"><tr>`+
+      `<th>SEMANA ${s.n} · ${d2(s.ini)} a ${d2(s.fim)}</th>`+
+      `<th class="num">A PAGAR</th><th class="num">A RECEBER</th><th class="num">SALDO</th></tr></thead>`+
+      `<tbody>${corpo}<tr class="tot"><td>TOTAL</td><td class="num">${cel(tP)}</td><td class="num">${cel(tR)}</td>`+
+      `<td class="num ${salT>=0?'sal-pos':'sal-neg'}">${money(salT)}</td></tr></tbody></table>`;
+  }
+  const gSal=gR-gP;
+  html+=`<div class="prev-geral"><span><b>TOTAL GERAL</b></span>`+
+    `<span>A Pagar: <b>${money(gP)}</b></span><span>A Receber: <b>${money(gR)}</b></span>`+
+    `<span>Saldo: <b class="${gSal>=0?'':'sal-neg'}">${money(gSal)}</b></span></div>`;
+  html+=`<div class="prev-nota">Semana inicia no sábado. <b>A pagar</b>: fim de semana efetiva na segunda; `+
+    `feriado (ou segunda sem expediente) antecipa para o dia útil anterior. <b>A receber</b>: sempre no próximo `+
+    `dia útil (horário bancário). Feriados nacionais + regionais de SC e RS. Base: vencimento × valor original.</div>`;
+
+  prevDados={visiveis, idx};
+  body.innerHTML=html;
+  document.getElementById('prevTitulo').textContent='Previsão Semanal · '+d2(hoje)+' + 90 dias';
+  document.getElementById('modalPrev').classList.remove('hidden');
+}
+function fecharPrev(){ document.getElementById('modalPrev').classList.add('hidden'); }
+function exportarPrevCSV(){
+  if(!prevDados) return;
+  const {visiveis, idx}=prevDados;
+  const d2=d=>String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0');
+  const num=v=> v ? v.toFixed(2).replace('.',',') : '';
+  const linhas=[['Semana','Periodo','Empresa','A Pagar','A Receber','Saldo']];
+  let gP=0,gR=0;
+  for(const s of visiveis){
+    const o=idx.get(s.ini.getTime()); let tP=0,tR=0;
+    for(const e of _EMPS){ const p=o[e].p, r=o[e].r; tP+=p; tR+=r;
+      linhas.push(['S'+s.n, d2(s.ini)+' a '+d2(s.fim), e, num(p), num(r), num(r-p)]); }
+    linhas.push(['S'+s.n, d2(s.ini)+' a '+d2(s.fim), 'TOTAL', num(tP), num(tR), num(tR-tP)]);
+    gP+=tP; gR+=tR;
+  }
+  linhas.push(['','','TOTAL GERAL', num(gP), num(gR), num(gR-gP)]);
+  const csv=linhas.map(r=>r.map(c=>{c=String(c);return /[",;\n]/.test(c)?'"'+c.replace(/"/g,'""')+'"':c;}).join(';')).join('\n');
+  const blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='previsao_semanal.csv'; a.click();
+}
+document.getElementById('btnPrevSemanal').addEventListener('click', abrirPrevSemanal);
+document.getElementById('btnFecharPrev').addEventListener('click', fecharPrev);
+document.getElementById('btnOkPrev').addEventListener('click', fecharPrev);
+document.getElementById('btnPrevCSV').addEventListener('click', exportarPrevCSV);
+document.getElementById('modalPrev').addEventListener('click', e=>{ if(e.target.id==='modalPrev') fecharPrev(); });
 
 /* ============================================================================
    PWA — instalação no celular ("Baixar") + service worker
